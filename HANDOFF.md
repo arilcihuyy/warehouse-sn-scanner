@@ -7,7 +7,18 @@
 - Stack: HTML/CSS/JS statis, ZXing vendored, Web Worker, localStorage
 - Kamera: 1280×720, decode di `assets/scan-worker.js`, crop adaptif
 
-## Tujuan sesi berikutnya
+## Status deploy — SELESAI (25 Nov 2026)
+
+Live di **https://arilcihuyy.github.io/warehouse-sn-scanner/** (HTTP 200, `<title>Warehouse SN Scanner</title>`, assets `scan-worker.js` ikut ter-deploy).
+
+- Repo: `arilcihuyy/warehouse-sn-scanner` (publik), branch `main`, commit pertama `3b7e6de`
+- Pages: source `main` / root, `build_type: legacy`, HTTPS enforced, status `built`
+- Auth: OAuth device flow (client id gh CLI, scope `repo`). Token baru sudah menggantikan `GITHUB_TOKEN` lama di `~/.hermes/.env` + `~/.git-credentials` (helper `store`), jadi `git push` berikutnya tidak perlu auth ulang.
+- Verifikasi: hash file live == file lokal (index.html, app.js, styles.css, zxing.min.js); parse SN 4 entri OK; jalur kamera-gagal tampil rapi (tidak crash).
+
+Kalau perlu update: commit ke `main`, `git push`, Pages rebuild otomatis (~40 detik).
+
+## Riwayat tujuan sesi sebelumnya
 
 Push ke **GitHub Pages** supaya tidak bergantung server lokal.
 
