@@ -1,0 +1,15 @@
+# Dependencies & test artifacts
+node_modules/
+tests/node_modules/
+tests/package-lock.json
+
+# Generated test media
+tests/fixtures/scan.y4m
+tests/e2e-*.png
+tests/landscape-*.png
+tests/shot-*.png
+
+# Local env / logs
+.venv-test/
+*.log
+.DS_Store

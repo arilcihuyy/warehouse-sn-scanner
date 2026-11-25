@@ -1,0 +1,17 @@
+{
+  "name": "warehouse-sn-scanner-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Test harness for Warehouse SN Scanner",
+  "scripts": {
+    "test": "node core.test.mjs && node decode-node.js && node roi-node.js",
+    "test:e2e": "node e2e-import.mjs && node e2e-camera.mjs && node e2e-flow.mjs && node e2e-pause.mjs",
+    "fixtures": "node make-fixtures.js",
+    "perf": "THROTTLE=8 SECONDS=8 node perf-baseline.mjs"
+  },
+  "devDependencies": {
+    "bwip-js": "^4.11.4",
+    "pngjs": "^7.0.0",
+    "playwright-core": "^1.65.1"
+  }
+}
