@@ -1,38 +1,29 @@
-# Warehouse SN Scanner
+# StockScan - Inventory Scanner
 
-Aplikasi web **mobile-first** dengan dua mode: **Cocokkan** barcode perangkat (modem, ONT, router) dengan daftar Serial Number, atau **Scan bebas** untuk mengumpulkan SN apa pun — dikelompokkan per merk — lalu mengekspornya ke Excel/CSV. Pure client-side — tanpa backend, tanpa database, tanpa request ke server. Seluruh progres disimpan di `localStorage` perangkat.
+Aplikasi pemindai barcode, QR, dan nomor seri **mobile-first** untuk operasional gudang. Tersedia dalam dua implementasi di repo ini: **web app** (HTML/CSS/JS, PWA) dan **APK Android native** (Java + ZXing). Keduanya bekerja sepenuhnya di perangkat - tanpa backend, akun, atau sinkronisasi cloud.
 
 ![Tampilan scanner](docs/preview.png)
 
+## Fitur utama
+
+- **Beranda** dengan ilustrasi scanning, tiga aksi cepat (`Mulai Scan`, `Input Manual`, `Scan dari Gambar`), statistik hari ini, dan riwayat terbaru.
+- **Dua mode**: `Scan Bebas` (kumpulkan barcode apa pun) dan `Cocokkan Daftar` (impor daftar SN lalu tandai yang ketemu / sisa / tidak cocok).
+- **Kamera asli** (kamera belakang by default): permission handling, senter, ganti kamera, pause/resume, scan dari gambar, cooldown duplikat, beep + getar, dan penanganan error yang jelas. Decode berjalan di **Web Worker** dengan crop adaptif.
+- **Format**: `CODE_128`, `CODE_93`, `CODE_39`, `ITF`, `CODABAR`, `EAN_13`, `EAN_8`, `UPC_A`, `UPC_E`, `QR_CODE`, `DATA_MATRIX`, `AZTEC`.
+- **Detail item**: nama produk, merk, kategori, jumlah, lokasi/rak, catatan, format, timestamp - bisa dibuat manual bila barcode belum dikenal.
+- **Inventaris**: pencarian SN/nama/merk, filter kategori/duplikat/hari ini, pengurutan, edit, hapus dengan konfirmasi, dan render inkremental.
+- **Manajemen sesi**: buat, lanjutkan, rename, ekspor, kosongkan, dan hapus sesi. Data lama (v1–v3) dimigrasikan otomatis.
+- **Ekspor nyata**: `.xlsx` dengan sheet `Ringkasan` + `Inventory`, CSV, TSV, dan share file bila didukung browser. Impor daftar dari `.txt`, `.csv`, dan `.xlsx`.
+- **Palet StockScan**: gradien pastel mint, cream, kuning hangat, dan peach di latar belakang. Teks hitam, kartu putih, tombol melayang, dan layar kamera gelap dengan frame putih.
+- Data tersimpan di `localStorage` (web) / `SharedPreferences` (native). Tidak ada CDN saat pemindaian.
+
 ## Unduh APK Android (native)
 
-APK native ada di halaman **[Releases](https://github.com/arilcihuyy/warehouse-sn-scanner/releases/latest)** (`warehouse-sn-scanner-v2.0.0-native.apk`).
+Build native terbaru adalah versi **3.0.0** (`versionCode 3`) dengan palet StockScan, sesi bernama, detail item lengkap, ganti kamera, pause/resume, dan scan dari gambar.Folder `native/` berisi proyek Gradle; build memerlukan JDK 17 + Android SDK.
 
-- **Native Android** (Java + ZXing), bukan WebView/TWA. Tidak butuh Chrome dan **tidak butuh internet**.
-- Android **7.0+** (API 24).
-- Kamera, daftar SN, dan ekspor Excel/CSV berjalan sepenuhnya di perangkat.
-- Data APK native terpisah dari data web (`localStorage` browser); keduanya tidak saling sinkron.
+Cara pasang APK: unduh → izinkan **install dari sumber tidak dikenal** → buka **StockScan** → izinkan kamera.
 
-Cara pasang: unduh APK → buka → izinkan **install dari sumber tidak dikenal** → buka **SN Scanner** → izinkan kamera.
-
-## Fitur
-
-- **Dua mode**: `Cocokkan` (checklist dari daftar impor) dan `Scan bebas` (kumpulkan SN tanpa daftar target). Sesi keduanya tersimpan terpisah.
-- **Impor daftar SN** dari tempel teks atau file `.txt` / `.csv` (deteksi kolom `SN` / `Serial Number`, buang duplikat otomatis).
-- **Scanner kamera belakang** dengan area scan tipis horizontal **85% × 28%** di tengah viewfinder. Kamera hanya membaca area kotak, jadi barcode MAC/PON di sebelah SN tidak ikut terbaca.
-- **Decode di Web Worker** — ZXing tidak memblokir main thread, jadi preview kamera dan checklist tetap mulus di HP kelas menengah. Resolusi crop adaptif mengikuti kemampuan perangkat.
-- Format barcode: `CODE_128`, `CODE_93`, `CODE_39`, `ITF`, `CODABAR`, `EAN_13`, `EAN_8`, `UPC_A`, `UPC_E`, `QR_CODE`, `DATA_MATRIX`, `AZTEC`.
-- **Feedback tanpa pop-up**: frame hijau + beep + getar untuk scan baru, kuning + beep ganda untuk duplikat, teks kecil untuk bukan target.
-- **Scan bebas**: satu SN = satu baris; scan ulang ditolak dengan peringatan. Baris bisa diubah/dihapus, ada input manual, pencarian, dan penghitung SN unik per merk.
-- **Merk otomatis + override**: prefix SN dikenali (`ZTE`, `HWTC`/`48575443`, `FHTT`, `RCM`) dan masuk ke merk yang sesuai; chip `Auto` / `ZTE` / `Huawei` / `FiberHome` / `RCM` / `Lainnya` bisa dipakai untuk memaksa merk saat prefix tidak jelas. Merk tiap baris juga bisa diubah di dialog edit.
-- **Ekspor spreadsheet**: `.xlsx` berisi sheet **Ringkasan** (jumlah per merk), **Semua** (dengan kolom Merk), dan **satu sheet per merk**; plus CSV (pemisah `;`) dan salin TSV. Mode Cocokkan juga bisa mengunduh Excel dari rekap.
-- **Checklist live** dengan progress bar, pencarian, filter `Semua` / `Sisa` / `Ketemu`, dan tap manual untuk koreksi.
-- **Rekap & ekspor**: salin sisa SN atau laporan lengkap siap tempel ke WhatsApp, unduh Excel, lalu reset sesi dengan konfirmasi.
-- Tombol **home** di layar kamera untuk pindah mode tanpa menghapus sesi.
-- **Senter** (jika perangkat mendukung), **pause/resume**, **wake lock**, dan penanganan error kamera yang ramah.
-- **Desain dua suasana**: shell terang “paper” untuk menyiapkan sesi, dan mode scan gelap imersif agar barcode tetap fokus. Tipografi Instrument Sans + JetBrains Mono (vendored, OFL).
-- **Mobile-first**: target sentuh 44px+, safe-area iOS/Android, dan layout desktop dua kolom (kamera + daftar) yang tetap nyaman.
-- Aset scanner (ZXing) dan font disimpan lokal — tidak bergantung CDN saat dipakai.
+Data web dan data APK native tersimpan terpisah dan tidak saling sinkron.
 
 ## Struktur file
 
@@ -70,7 +61,7 @@ cd warehouse-sn-scanner
 python3 -m http.server 8080
 ```
 
-Buka **http://localhost:8080** di Chrome/Safari. Jangan buka `index.html` lewat `file://` — ES module dan kamera akan diblokir browser.
+Buka **http://localhost:8080** di Chrome/Safari. Jangan buka `index.html` lewat `file://` - ES module dan kamera akan diblokir browser.
 
 Alternatif:
 
@@ -134,7 +125,7 @@ Pilih mode di layar awal: **Cocokkan** atau **Scan bebas**.
 
 1. Pilih tab **Scan bebas** → **Mulai scan bebas**.
 2. Scan barcode apa pun. Setiap SN baru masuk daftar; kalau SN sudah pernah discan, scan ditolak dan tidak menambah baris.
-3. Merk terdeteksi dari prefix SN. Kalau prefix tidak jelas (atau salah), tap chip merk di atas daftar sebelum scan — pilihan berlaku untuk scan berikutnya. Merk per baris juga bisa diubah lewat dialog edit.
+3. Merk terdeteksi dari prefix SN. Kalau prefix tidak jelas (atau salah), tap chip merk di atas daftar sebelum scan - pilihan berlaku untuk scan berikutnya. Merk per baris juga bisa diubah lewat dialog edit.
 4. Ketuk baris untuk mengubah SN/merk/jumlah unit atau menghapus. Tombol **+** di samping pencarian untuk menambah SN manual.
 5. Tombol **Ekspor** → `.xlsx` berisi Ringkasan + Semua + sheet per merk; atau CSV/TSV.
 6. **Reset sesi** menghapus daftar scan bebas saja; sesi Cocokkan tetap tersimpan.
@@ -164,7 +155,7 @@ Kalau HP terasa ngelag saat preview:
 1. **Decode dipindah ke Web Worker.** Main thread hanya mengambil crop; ZXing berjalan di worker. Hanya satu frame yang diproses pada satu waktu, jadi frame kamera berikutnya tidak menumpuk.
 2. **Kamera 1280×720, target 24–30 fps** (bukan 1080p). Preview lebih ringan, detail barcode tetap cukup untuk strip 85% × 28%.
 3. **Resolusi crop adaptif**: 900px untuk perangkat 8 core, 760px untuk 6 core, 640px untuk 4 core / RAM kecil. Kalau decode di worker tetap >120 ms tiga kali berturut-turut, resolusi diturunkan otomatis sampai 480px.
-4. **Tanpa `TRY_HARDER`** — mode ZXing yang paling mahal. Barcode di strip sudah dekat dan jelas.
+4. **Tanpa `TRY_HARDER`** - mode ZXing yang paling mahal. Barcode di strip sudah dekat dan jelas.
 5. **Efek UI diringankan**: frame scan memakai satu garis tipis statis (tanpa glow/animasi), tidak ada `backdrop-filter` di atas video, dan shadow tebal dihapus.
 6. **Geometry scan di-cache** dan dihitung ulang saat resize/orientasi, bukan dibaca dari DOM setiap frame.
 
@@ -175,7 +166,7 @@ Kalau masih terasa berat: buka di Chrome (bukan browser dalam Telegram/Instagram
 - **Merk**: deteksi otomatis memakai prefix `ZTE`, `HWTC`/`HUAWEI`/`HW`/`48575443`, `FHTT`/`FIBERHOME`/`FH`, dan `RCM`. Selain itu masuk `Lainnya`. Override lewat chip atau dialog edit selalu menang.
 - **Data per browser/origin.** Ganti browser, HP, atau alamat deploy = sesi berbeda. Reset lewat menu Rekap (mode Cocokkan) atau Ekspor (mode Scan bebas).
 - **Kompatibel dengan sesi lama.** Data v1/v2 dimigrasikan otomatis. Qty lama yang terbentuk dari scan berulang dirapikan menjadi 1 (satu SN = satu unit).
-- **Kamera**: Chrome Android dan Safari iOS 15.4+. Browser dalam aplikasi (Telegram/Instagram) kadang memblokir kamera — buka di Chrome/Safari.
+- **Kamera**: Chrome Android dan Safari iOS 15.4+. Browser dalam aplikasi (Telegram/Instagram) kadang memblokir kamera - buka di Chrome/Safari.
 - **Senter** hanya muncul jika browser + kamera mendukung Torch API. iOS Safari umumnya belum mendukung.
 - **Getar** tidak tersedia di iOS Safari; feedback suara + visual tetap jalan.
 - **Audio** baru aktif setelah user menekan tombol (aturan autoplay). Itu sebabnya `AudioContext` di-unlock di tombol Mulai scan.
@@ -220,5 +211,5 @@ Detail lengkap di [`tests/README.md`](tests/README.md).
 
 ## Pihak ketiga
 
-- **ZXing** (`@zxing/library` 0.21.3) — Apache License 2.0. File: `assets/zxing.min.js`. Teks lisensi: `assets/zxing-LICENSE.txt`.
+- **ZXing** (`@zxing/library` 0.21.3) - Apache License 2.0. File: `assets/zxing.min.js`. Teks lisensi: `assets/zxing-LICENSE.txt`.
 - Ikon dan desain dibuat untuk proyek ini.

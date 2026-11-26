@@ -26,6 +26,7 @@ export class CameraScanner {
     this.timer = 0;
     this.torchOn = false;
     this.torchSupported = false;
+    this.facingMode = 'environment';
     this.wakeLock = null;
 
     this.canvas = document.createElement('canvas');
@@ -144,7 +145,7 @@ export class CameraScanner {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
-          facingMode: { ideal: 'environment' },
+          facingMode: { ideal: this.facingMode },
           width: { ideal: 1280, max: 1280 },
           height: { ideal: 720, max: 720 },
           frameRate: { ideal: 24, max: 30 },
@@ -155,7 +156,7 @@ export class CameraScanner {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: false,
-            video: { facingMode: { ideal: 'environment' } },
+            video: { facingMode: { ideal: this.facingMode } },
           });
         } catch {
           stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
@@ -294,6 +295,19 @@ export class CameraScanner {
     this.releaseWakeLock();
   }
 
+  /** Restart preview on the other camera while keeping the scan state. */
+  async switchCamera() {
+    const wasRunning = this.running;
+    const wasPaused = this.paused;
+    this.stop();
+    this.facingMode = this.facingMode === 'environment' ? 'user' : 'environment';
+    if (wasRunning) {
+      await this.start();
+      if (wasPaused) this.pause();
+    }
+    return this.facingMode;
+  }
+
   tick() {
     if (!this.running || this.paused) return;
     clearTimeout(this.timer);
@@ -401,4 +415,26 @@ export class CameraScanner {
     }
     this.wakeLock = null;
   }
+}
+
+/** Decode a barcode from a picked/gallery image using the vendored ZXing. */
+export async function decodeImageFile(file) {
+  if (!file) return null;
+  const bitmap = typeof createImageBitmap === 'function'
+    ? await createImageBitmap(file)
+    : await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = URL.createObjectURL(file);
+      });
+  const canvas = document.createElement('canvas');
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  if (bitmap.close) bitmap.close();
+  const decoder = createDecoder(window.ZXing);
+  return decoder(canvas);
 }

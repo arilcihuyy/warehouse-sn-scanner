@@ -1,13 +1,13 @@
 {
-  "name": "Warehouse SN Scanner",
-  "short_name": "SN Scanner",
-  "description": "Cocokkan barcode perangkat dengan daftar Serial Number, atau kumpulkan SN bebas dan ekspor ke Excel langsung dari browser HP.",
+  "name": "StockScan - Inventory Scanner",
+  "short_name": "StockScan",
+  "description": "Pemindai barcode, QR, dan nomor seri untuk inventaris gudang. Bekerja sepenuhnya di perangkat.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#F4F1EA",
-  "theme_color": "#F4F1EA",
+  "background_color": "#F4F6FA",
+  "theme_color": "#C5E8D8",
   "icons": [
     {
       "src": "assets/icon-192.png",

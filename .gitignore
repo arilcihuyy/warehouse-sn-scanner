@@ -10,6 +10,7 @@ tests/e2e-*.csv
 tests/e2e-*.xlsx
 tests/landscape-*.png
 tests/shot-*.png
+tests/screenshots/
 
 # Local env / logs
 .venv-test/
