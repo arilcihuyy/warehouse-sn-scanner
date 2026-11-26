@@ -4,14 +4,16 @@ Aplikasi web **mobile-first** dengan dua mode: **Cocokkan** barcode perangkat (m
 
 ![Tampilan scanner](docs/preview.png)
 
-## Unduh APK Android
+## Unduh APK Android (native)
 
-APK siap pasang ada di halaman **[Releases](https://github.com/arilcihuyy/warehouse-sn-scanner/releases/latest)** (`warehouse-sn-scanner-v1.0.0.apk`).
+APK native ada di halaman **[Releases](https://github.com/arilcihuyy/warehouse-sn-scanner/releases/latest)** (`warehouse-sn-scanner-v2.0.0-native.apk`).
 
-- Android **7.0+** (API 24), butuh **Chrome** dan koneksi internet saat membuka aplikasi.
-- APK ini adalah **Trusted Web Activity** yang membungkus versi web di GitHub Pages — tampil tanpa address bar, dan pembaruan web otomatis terpakai tanpa install ulang.
-- Data tetap tersimpan di perangkat (`localStorage`), bukan di server.
-- Kamera, unduh Excel/CSV, dan pemilih file berjalan lewat Chrome.
+- **Native Android** (Java + ZXing), bukan WebView/TWA. Tidak butuh Chrome dan **tidak butuh internet**.
+- Android **7.0+** (API 24).
+- Kamera, daftar SN, dan ekspor Excel/CSV berjalan sepenuhnya di perangkat.
+- Data APK native terpisah dari data web (`localStorage` browser); keduanya tidak saling sinkron.
+
+Cara pasang: unduh APK → buka → izinkan **install dari sumber tidak dikenal** → buka **SN Scanner** → izinkan kamera.
 
 ## Fitur
 
@@ -54,6 +56,7 @@ warehouse-sn-scanner/
 │   ├── icon-192.png
 │   └── icon-512.png
 ├── tests/                     # opsional, tidak dipakai saat produksi
+├── native/                    # APK Android native (Java + ZXing + XLSX writer)
 ├── docs/preview.png           # screenshot untuk README
 └── README.md
 ```
@@ -76,6 +79,25 @@ npx serve .
 # atau
 php -S localhost:8080
 ```
+
+## Build APK native
+
+Project native ada di `native/` (Java, Gradle, ZXing, tanpa WebView).
+
+```bash
+cd native
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export ANDROID_HOME=$HOME/android-sdk
+export ANDROID_SDK_ROOT=$ANDROID_HOME
+export SN_KEYSTORE=$HOME/.android-keys/warehouse-sn-scanner.keystore
+export SN_KEYALIAS=snscanner
+export SN_STOREPASS=...
+export SN_KEYPASS=...
+./gradlew test
+./gradlew assembleRelease
+```
+
+APK: `native/app/build/outputs/apk/release/app-release.apk`. Jangan commit keystore; update berikutnya wajib memakai key yang sama.
 
 ## Deploy gratis ke HTTPS
 

@@ -19,14 +19,16 @@
 - Format barcode ditambah: CODE_93, ITF, CODABAR, EAN_8, UPC_A, UPC_E, AZTEC.
 - Verifikasi: 39 unit test lulus, E2E lama + collect + brands lulus, XLSX multi-sheet dibuka `openpyxl`, perf throttle 8× raf p95 39 ms.
 
-## Update 26 Nov 2026 — APK Android v1.0.0
+## Update 26 Nov 2026 — APK Android native v2.0.0
 
-- APK **Trusted Web Activity** dibangun dengan Bubblewrap; package `io.github.arilcihuyy.snscanner`, versionName `1.0.0` (versionCode 1), minSdk 24 (Android 7.0), targetSdk 36.
-- Aset rilis: `warehouse-sn-scanner-v1.0.0.apk` di GitHub Releases; ukuran ~962 KB. AAB juga dihasilkan lokal (`app-release-bundle.aab`) tetapi tidak diunggah.
-- Asset links ada di repo root `arilcihuyy/arilcihuyy.github.io` → `https://arilcihuyy.github.io/.well-known/assetlinks.json`; sudah diverifikasi Google Digital Asset Links.
-- Keystore: `~/.android-keys/warehouse-sn-scanner.keystore` (alias `snscanner`, info di `~/.android-keys/warehouse-sn-scanner.txt`, mode 600). **Jangan commit**; keystore yang sama wajib dipakai untuk update APK.
-- Proyek build: `~/warehouse-sn-scanner-android` (`twa-manifest.json`, Gradle). Build: `bubblewrap build --skipPwaValidation` dengan env password dari file keyinfo.
-- Verifikasi statis: `apksigner` v2/v3 valid, fingerprint `81:A1:...:AE:14`, package/launchable activity/assetStatements sesuai. Belum diuji install di perangkat fisik.
+- APK **native Android** (Java + ZXing), bukan WebView/TWA. Tidak butuh Chrome/internet; `INTERNET` tidak diminta.
+- Package `io.github.arilcihuyy.snscanner`, versionName `2.0.0` (versionCode 2), minSdk 24 (Android 7.0), targetSdk 36; APK ~4.3 MB.
+- Fitur: Cocokkan (impor file/tempel, checklist sisa/ketemu), Scan bebas (SN unik, duplikat ditolak, merk auto/override, edit/hapus/tambah manual), ekspor XLSX multi-sheet + CSV + TSV.
+- Source: `native/` di repo ini. `XlsxWriter` ditulis sendiri (tanpa Apache POI); file XLSX divalidasi dengan `openpyxl`.
+- Keystore: `~/.android-keys/warehouse-sn-scanner.keystore` (alias `snscanner`, password di `warehouse-sn-scanner.txt`, mode 600). Sama dengan APK v1 supaya bisa update; jangan commit.
+- Build: `cd native && ./gradlew assembleRelease` dengan env `SN_KEYSTORE/SN_STOREPASS/SN_KEYALIAS/SN_KEYPASS`.
+- Verifikasi: 10 unit test lulus, `apksigner` v2 valid (fingerprint `81:A1:...:AE:14`), package/launchable activity dicek via `aapt`, dua file XLSX dibuka `openpyxl`. Belum diuji install di perangkat fisik.
+- Rilis v1.0.0 (TWA) tetap ada sebagai arsip; **gunakan v2.0.0 native**.
 
 ## Update 26 Nov 2026 — Redesign UI (Paper & Signal)
 
