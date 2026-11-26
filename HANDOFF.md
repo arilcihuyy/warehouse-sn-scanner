@@ -27,7 +27,7 @@
 - Source: `native/` di repo ini. `XlsxWriter` ditulis sendiri (tanpa Apache POI); file XLSX divalidasi dengan `openpyxl`.
 - Keystore: `~/.android-keys/warehouse-sn-scanner.keystore` (alias `snscanner`, password di `warehouse-sn-scanner.txt`, mode 600). Sama dengan APK v1 supaya bisa update; jangan commit.
 - Build: `cd native && ./gradlew assembleRelease` dengan env `SN_KEYSTORE/SN_STOREPASS/SN_KEYALIAS/SN_KEYPASS`.
-- Verifikasi: 10 unit test lulus, `apksigner` v2 valid (fingerprint `81:A1:...:AE:14`), package/launchable activity dicek via `aapt`, dua file XLSX dibuka `openpyxl`. Belum diuji install di perangkat fisik.
+- Verifikasi: 14 unit/smoke test lulus (10 core + 4 Robolectric activity), `apksigner` v2 valid (fingerprint `81:A1:...:AE:14`), package/launchable activity dicek via `aapt`, dua file XLSX dibuka `openpyxl`, `lintRelease` 0 error. Belum diuji install di perangkat fisik.
 - Rilis v1.0.0 (TWA) tetap ada sebagai arsip; **gunakan v2.0.0 native**.
 
 ## Update 26 Nov 2026 — Redesign UI (Paper & Signal)
