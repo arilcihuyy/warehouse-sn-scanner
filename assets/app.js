@@ -1,7 +1,7 @@
 /** StockScan, UI, camera flow, inventory and exports. */
 
 import {
-  SessionStore, CATEGORIES, EXPORT_HEADERS, addScan, setExpected, replaceItem,
+  SessionStore, CATEGORIES, BRANDS, EXPORT_HEADERS, addScan, setExpected, replaceItem,
   deleteItem, filterItems, exportRows, sessionSummary,
   formatStamp, nowIso,
 } from './sessions.js';
@@ -21,6 +21,7 @@ let mode = store.state.lastMode === 'match' ? 'match' : 'collect';
 let session = store.ensure(mode);
 let currentView = 'home';
 let filter = { query: '', category: '', duplicates: false, today: false, sort: 'newest' };
+let scanQuery = '';
 let pageSize = 100;
 let selected = { index: -1, sn: '', lastAt: '', status: '' };
 let editing = { index: -1, add: false };
@@ -62,8 +63,8 @@ function showView(name) {
   if (name === 'scan') {
     $('scan-view').classList.add('is-idle');
     $('camera-mode').textContent = mode === 'match' ? 'Cocokkan Daftar' : 'Scan Bebas';
-    $('camera-date').textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-    $('session-count').textContent = `${sessionSummary(session).unique} item`;
+    $('camera-date').textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+    renderScanSheet();
   }
 }
 
@@ -254,8 +255,55 @@ function updateResultCard(result) {
   $('scan-meta').textContent = detail.join(' · ') || 'Hasil pemindaian akan muncul di sini.';
   $('open-detail-btn').hidden = result.status !== 'new' && result.status !== 'match';
   card.dataset.status = result.status;
-  $('session-count').textContent = `${sessionSummary(session).unique} item`;
+  renderScanSheet();
   flashFrame(result.status);
+}
+
+function shortTime(iso) {
+  if (!iso) return '';
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderScanSheet() {
+  const summary = sessionSummary(session);
+  $('session-count').textContent = String(summary.unique);
+  const brands = new Set(session.items.map((item) => item.brand).filter(Boolean)).size;
+  $('scan-summary-sub').textContent = mode === 'match'
+    ? `${summary.matched} cocok · ${summary.remaining} sisa`
+    : `${brands} merk · ${summary.totalScans} scan`;
+  $('rekap-label').textContent = mode === 'match' ? 'Rekap' : 'Ekspor';
+  $('rekap-sub').textContent = mode === 'match' ? `${summary.matched}/${summary.unique}` : `${summary.unique} SN`;
+
+  const activeBrand = session.activeBrand || 'auto';
+  $('brand-chips').innerHTML = ['auto', ...BRANDS].map((brand) => {
+    const label = brand === 'auto' ? 'Auto' : brand;
+    return `<button class="brand-chip${activeBrand === brand ? ' is-active' : ''}" type="button" data-brand="${escapeHtml(brand)}">${escapeHtml(label)}</button>`;
+  }).join('');
+
+  const items = filterItems(session.items, { query: scanQuery, sort: 'newest' });
+  $('scan-list-empty').hidden = items.length > 0;
+  $('scan-list-empty').textContent = scanQuery ? 'SN tidak ditemukan.' : 'Belum ada SN di sesi ini.';
+  $('scan-list').innerHTML = items.slice(0, 60).map((item) => {
+    const index = session.items.indexOf(item);
+    const scans = Number(item.scanCount || 1);
+    const pill = mode === 'match'
+      ? (item.status === 'found' ? 'OK' : '…')
+      : `×${scans}`;
+    const time = shortTime(item.lastAt || item.scannedAt || item.firstAt);
+    const meta = mode === 'match'
+      ? [item.brand, item.status === 'found' ? 'Cocok' : 'Belum', time].filter(Boolean).join(' · ')
+      : [item.brand, time, `${scans}× scan`].filter(Boolean).join(' · ');
+    return `
+      <div class="scan-row">
+        <span class="scan-count-pill${scans > 1 ? ' is-dup' : ''}">${escapeHtml(pill)}</span>
+        <button class="scan-row-main" type="button" data-index="${index}">
+          <strong>${escapeHtml(item.sn)}</strong>
+          <span>${escapeHtml(meta)}</span>
+        </button>
+        <button class="scan-row-edit" type="button" data-edit="${index}" aria-label="Edit ${escapeHtml(item.sn)}"><svg><use href="#i-edit"/></svg></button>
+      </div>`;
+  }).join('');
 }
 
 function flashFrame(status) {
@@ -307,6 +355,7 @@ function cameraErrorMessage(error) {
 
 async function activateCamera() {
   $('scan-view').classList.remove('is-idle');
+  renderScanSheet();
   $('camera-error').hidden = true;
   $('camera-idle').hidden = true;
   $('paused-overlay').hidden = true;
@@ -422,6 +471,7 @@ function saveEditor(event) {
   renderHome();
   renderInventory();
   renderSessions();
+  renderScanSheet();
   if (currentView === 'detail') renderDetail();
 }
 
@@ -649,6 +699,7 @@ function wireEvents() {
     closeModal('edit-modal');
     renderHome();
     renderInventory();
+    renderScanSheet();
     if (currentView === 'detail') showView('inventory');
   }, 'Hapus item'));
   $('edit-cancel')?.addEventListener('click', () => closeModal('edit-modal'));
@@ -727,6 +778,22 @@ function wireEvents() {
   $('help-btn').addEventListener('click', () => showView('help'));
   $('help-back').addEventListener('click', () => showView('home'));
   $('manual-scan-btn').addEventListener('click', () => openEditor(-1, true));
+  $('brand-chips').addEventListener('click', (event) => {
+    const chip = event.target.closest('.brand-chip');
+    if (!chip) return;
+    session = store.replace(session.id, { ...session, activeBrand: chip.dataset.brand });
+    renderScanSheet();
+  });
+  $('scan-search').addEventListener('input', (event) => {
+    scanQuery = event.target.value;
+    renderScanSheet();
+  });
+  $('scan-list').addEventListener('click', (event) => {
+    const editBtn = event.target.closest('[data-edit]');
+    if (editBtn) { openEditor(Number(editBtn.dataset.edit)); return; }
+    const row = event.target.closest('.scan-row-main');
+    if (row) openDetail(Number(row.dataset.index));
+  });
   document.querySelectorAll('.mode-tab[data-session-mode]').forEach((tab) => tab.addEventListener('click', () => {
     document.querySelectorAll('.mode-tab[data-session-mode]').forEach((node) => node.classList.toggle('is-active', node === tab));
     renderSessions();
@@ -802,6 +869,7 @@ function wireEvents() {
       renderHome();
       renderInventory();
       renderSessions();
+      renderScanSheet();
       toast('Sesi dikosongkan', 'success');
     }, 'Kosongkan');
   });
@@ -825,8 +893,7 @@ function openDetail(index) {
 
 
 function init() {
-  $('edit-brand').innerHTML = ['auto', ...CATEGORIES.map(() => null)].filter(Boolean).join('');
-  $('edit-brand').innerHTML = `<option value="auto">Auto</option><option value="ZTE">ZTE</option><option value="Huawei">Huawei</option><option value="FiberHome">FiberHome</option><option value="RCM">RCM</option><option value="Lainnya">Lainnya</option>`;
+  $('edit-brand').innerHTML = '<option value="auto">Auto</option>' + BRANDS.map((brand) => `<option value="${brand}">${brand}</option>`).join('');
   $('edit-category').innerHTML = CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join('');
   $('category-filter').innerHTML = '<option value="">Semua kategori</option>' + CATEGORIES.map((category) => `<option value="${category}">${category}</option>`).join('');
   wireEvents();
@@ -834,6 +901,7 @@ function init() {
   renderHome();
   renderInventory();
   renderSessions();
+  renderScanSheet();
   updatePreview();
 
   window.__stockscan = {

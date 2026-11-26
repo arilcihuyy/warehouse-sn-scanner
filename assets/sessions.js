@@ -5,9 +5,9 @@
  */
 
 import { normalizeSn } from './scan-core.js';
-import { normalizeState as normalizeLegacy, formatStamp, guessBrand, normalizeBrand } from './data.js';
+import { normalizeState as normalizeLegacy, formatStamp, guessBrand, normalizeBrand, BRANDS } from './data.js';
 
-export { formatStamp, guessBrand, normalizeBrand };
+export { formatStamp, guessBrand, normalizeBrand, BRANDS };
 
 export const STORAGE_VERSION = 4;
 export const STORAGE_KEY = 'stockscan/v1';

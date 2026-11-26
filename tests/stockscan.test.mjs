@@ -86,10 +86,11 @@ test('match mode tracks found, remaining and unmatched scans', () => {
 });
 
 test('filterItems supports query, category, duplicates, day and sort', () => {
+  const todayIso = new Date().toISOString();
   const session = normalizeSession({
     mode: 'collect',
     items: [
-      { sn: 'ZTE1', name: 'Modem', category: 'Perangkat', scanCount: 2, firstAt: '2026-11-26T08:00:00.000Z', lastAt: '2026-11-26T08:00:00.000Z' },
+      { sn: 'ZTE1', name: 'Modem', category: 'Perangkat', scanCount: 2, firstAt: todayIso, lastAt: todayIso },
       { sn: 'HW2', name: 'Router', category: 'Aksesoris', scanCount: 1, firstAt: '2020-01-01T08:00:00.000Z', lastAt: '2020-01-01T08:00:00.000Z' },
     ],
   });

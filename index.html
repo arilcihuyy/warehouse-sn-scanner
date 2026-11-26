@@ -76,7 +76,7 @@
       <div id="camera-stage" class="camera-stage">
         <video id="camera-video" autoplay muted playsinline width="1280" height="720"></video>
         <div id="scan-frame" class="scan-frame" aria-hidden="true"><span class="scan-line"></span></div>
-        <p id="scan-hint" class="camera-hint">Arahkan barcode ke area scan</p>
+        <p id="scan-hint" class="camera-hint">Arahkan barcode ke dalam kotak</p>
 
         <div id="camera-idle" class="camera-overlay">
           <div class="idle-card">
@@ -115,18 +115,41 @@
         </div>
       </div>
 
-      <div class="scan-bottom">
-        <div id="result-card" class="result-card" role="status" aria-live="polite">
-          <div class="result-head"><span id="scan-status" class="badge badge-neutral">Siap memindai</span><span id="scan-time" class="muted"></span></div>
-          <strong id="scan-value" class="result-value">-</strong>
-          <span id="scan-meta" class="muted">Hasil pemindaian akan muncul di sini.</span>
-          <button id="open-detail-btn" class="link-btn" type="button" hidden>Lihat detail item</button>
+      <div class="scan-sheet">
+        <div class="scan-sheet-handle" aria-hidden="true"></div>
+        <div class="scan-summary">
+          <div class="scan-summary-left">
+            <span id="scan-status" class="badge badge-neutral">Siap memindai</span>
+            <div class="scan-total-row"><strong id="session-count">0</strong><span>SN</span></div>
+            <span id="scan-summary-sub" class="muted">0 merk · 0 scan</span>
+          </div>
+          <button id="rekap-btn" class="btn btn-primary scan-export-btn" type="button">
+            <svg><use href="#i-export"/></svg>
+            <span><strong id="rekap-label">Ekspor</strong><small id="rekap-sub">0 SN</small></span>
+          </button>
         </div>
-        <div class="scan-bottom-row">
-          <span id="session-count" class="session-count">0 item</span>
-          <button id="manual-scan-btn" class="btn btn-soft btn-small" type="button"><svg><use href="#i-edit"/></svg>Manual</button>
-          <button id="rekap-btn" class="btn btn-primary btn-small" type="button">Rekap</button>
+
+        <div id="result-card" class="result-strip" role="status" aria-live="polite">
+          <div class="result-strip-main">
+            <strong id="scan-value" class="result-value">-</strong>
+            <span id="scan-meta" class="muted">Hasil pemindaian akan muncul di sini.</span>
+          </div>
+          <span id="scan-time" class="muted"></span>
+          <button id="open-detail-btn" class="link-btn" type="button" hidden>Detail</button>
         </div>
+
+        <div id="brand-chips" class="brand-chips" role="group" aria-label="Pilih merk aktif"></div>
+
+        <div class="scan-search-row">
+          <label class="search-field compact">
+            <svg><use href="#i-search"/></svg>
+            <input id="scan-search" type="search" placeholder="Cari SN..." autocomplete="off">
+          </label>
+          <button id="manual-scan-btn" class="scan-add-btn" type="button" aria-label="Input manual"><svg><use href="#i-plus"/></svg></button>
+        </div>
+
+        <div id="scan-list" class="scan-list"></div>
+        <p id="scan-list-empty" class="scan-list-empty">Belum ada SN di sesi ini.</p>
       </div>
     </section>
 
