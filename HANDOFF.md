@@ -17,7 +17,16 @@
 - File baru: `assets/data.js`, `assets/export.js`, `assets/xlsx.js` (multi-sheet).
 - Test baru: `tests/data.test.mjs`, `tests/export.test.mjs`, `tests/e2e-collect.mjs`, `tests/e2e-brands.mjs`.
 - Format barcode ditambah: CODE_93, ITF, CODABAR, EAN_8, UPC_A, UPC_E, AZTEC.
-- Verifikasi: 38 unit test lulus, E2E lama + collect + brands lulus, XLSX multi-sheet dibuka `openpyxl`, perf throttle 8× raf p95 39 ms.
+- Verifikasi: 39 unit test lulus, E2E lama + collect + brands lulus, XLSX multi-sheet dibuka `openpyxl`, perf throttle 8× raf p95 39 ms.
+
+## Update 26 Nov 2026 — APK Android v1.0.0
+
+- APK **Trusted Web Activity** dibangun dengan Bubblewrap; package `io.github.arilcihuyy.snscanner`, versionName `1.0.0` (versionCode 1), minSdk 24 (Android 7.0), targetSdk 36.
+- Aset rilis: `warehouse-sn-scanner-v1.0.0.apk` di GitHub Releases; ukuran ~962 KB. AAB juga dihasilkan lokal (`app-release-bundle.aab`) tetapi tidak diunggah.
+- Asset links ada di repo root `arilcihuyy/arilcihuyy.github.io` → `https://arilcihuyy.github.io/.well-known/assetlinks.json`; sudah diverifikasi Google Digital Asset Links.
+- Keystore: `~/.android-keys/warehouse-sn-scanner.keystore` (alias `snscanner`, info di `~/.android-keys/warehouse-sn-scanner.txt`, mode 600). **Jangan commit**; keystore yang sama wajib dipakai untuk update APK.
+- Proyek build: `~/warehouse-sn-scanner-android` (`twa-manifest.json`, Gradle). Build: `bubblewrap build --skipPwaValidation` dengan env password dari file keyinfo.
+- Verifikasi statis: `apksigner` v2/v3 valid, fingerprint `81:A1:...:AE:14`, package/launchable activity/assetStatements sesuai. Belum diuji install di perangkat fisik.
 
 ## Update 26 Nov 2026 — Redesign UI (Paper & Signal)
 

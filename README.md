@@ -4,6 +4,15 @@ Aplikasi web **mobile-first** dengan dua mode: **Cocokkan** barcode perangkat (m
 
 ![Tampilan scanner](docs/preview.png)
 
+## Unduh APK Android
+
+APK siap pasang ada di halaman **[Releases](https://github.com/arilcihuyy/warehouse-sn-scanner/releases/latest)** (`warehouse-sn-scanner-v1.0.0.apk`).
+
+- Android **7.0+** (API 24), butuh **Chrome** dan koneksi internet saat membuka aplikasi.
+- APK ini adalah **Trusted Web Activity** yang membungkus versi web di GitHub Pages — tampil tanpa address bar, dan pembaruan web otomatis terpakai tanpa install ulang.
+- Data tetap tersimpan di perangkat (`localStorage`), bukan di server.
+- Kamera, unduh Excel/CSV, dan pemilih file berjalan lewat Chrome.
+
 ## Fitur
 
 - **Dua mode**: `Cocokkan` (checklist dari daftar impor) dan `Scan bebas` (kumpulkan SN tanpa daftar target). Sesi keduanya tersimpan terpisah.
