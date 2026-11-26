@@ -206,11 +206,59 @@ const STYLES =
   '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>';
 
-export function buildXlsx({ sheetName = 'Sheet1', headers = [], rows = [], widths = [] }) {
-  const name = sanitizeSheetName(sheetName);
-  let colCount = headers.length;
-  for (const row of rows) colCount = Math.max(colCount, row.length);
-  colCount = Math.max(1, colCount);
+function uniqueSheetNames(names) {
+  const used = new Set();
+  return names.map((raw, index) => {
+    const base = sanitizeSheetName(raw || `Sheet${index + 1}`);
+    let name = base;
+    let suffix = 2;
+    while (used.has(name.toLowerCase())) {
+      const tail = ` ${suffix}`;
+      name = `${base.slice(0, 31 - tail.length)}${tail}`;
+      suffix += 1;
+    }
+    used.add(name.toLowerCase());
+    return name;
+  });
+}
+
+export function buildWorkbook({ sheets = [] } = {}) {
+  const list = sheets.length ? sheets : [{ name: 'Sheet1', headers: [], rows: [] }];
+  const names = uniqueSheetNames(list.map((sheet, index) => sheet.name || `Sheet${index + 1}`));
+
+  const sheetParts = list.map((sheet, index) => {
+    const headers = sheet.headers || [];
+    const rows = sheet.rows || [];
+    const widths = sheet.widths || [];
+    let colCount = headers.length;
+    for (const row of rows) colCount = Math.max(colCount, row.length);
+    colCount = Math.max(1, colCount);
+    return {
+      name: `xl/worksheets/sheet${index + 1}.xml`,
+      data: encoder.encode(sheetXml(names[index], headers, rows, widths, colCount)),
+    };
+  });
+
+  const overrides = names
+    .map(
+      (_, index) =>
+        `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`,
+    )
+    .join('');
+  const workbookSheets = names
+    .map(
+      (name, index) =>
+        `<sheet name="${escapeXml(name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`,
+    )
+    .join('');
+  const workbookRels = names
+    .map(
+      (_, index) =>
+        `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`,
+    )
+    .join('');
+  const stylesRel =
+    `<Relationship Id="rId${names.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
 
   const parts = [
     {
@@ -220,7 +268,7 @@ export function buildXlsx({ sheetName = 'Sheet1', headers = [], rows = [], width
           '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
           '<Default Extension="xml" ContentType="application/xml"/>' +
           '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
-          '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>' +
+          overrides +
           '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
           '</Types>',
       ),
@@ -238,7 +286,7 @@ export function buildXlsx({ sheetName = 'Sheet1', headers = [], rows = [], width
       data: encoder.encode(
         `${XML_HEAD}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ` +
           `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">` +
-          `<sheets><sheet name="${escapeXml(name)}" sheetId="1" r:id="rId1"/></sheets>` +
+          `<sheets>${workbookSheets}</sheets>` +
           '</workbook>',
       ),
     },
@@ -246,17 +294,18 @@ export function buildXlsx({ sheetName = 'Sheet1', headers = [], rows = [], width
       name: 'xl/_rels/workbook.xml.rels',
       data: encoder.encode(
         `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-          '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>' +
-          '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+          workbookRels +
+          stylesRel +
           '</Relationships>',
       ),
     },
-    {
-      name: 'xl/worksheets/sheet1.xml',
-      data: encoder.encode(sheetXml(name, headers, rows, widths, colCount)),
-    },
+    ...sheetParts,
     { name: 'xl/styles.xml', data: encoder.encode(STYLES) },
   ];
 
   return zipStore(parts);
+}
+
+export function buildXlsx({ sheetName = 'Sheet1', headers = [], rows = [], widths = [] } = {}) {
+  return buildWorkbook({ sheets: [{ name: sheetName, headers, rows, widths }] });
 }

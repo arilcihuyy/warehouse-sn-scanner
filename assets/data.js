@@ -8,6 +8,33 @@ import { normalizeSn } from './scan-core.js';
 export const STORAGE_VERSION = 2;
 const ZERO_WIDTH = /[\u200B-\u200D\uFEFF]/g;
 
+export const BRANDS = ['ZTE', 'Huawei', 'FiberHome', 'RCM', 'Lainnya'];
+
+/** Map free text to one of the fixed brand buckets. */
+export function normalizeBrand(value) {
+  const clean = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, '');
+  if (clean === 'zte') return 'ZTE';
+  if (clean === 'huawei' || clean === 'hw') return 'Huawei';
+  if (clean === 'fiberhome' || clean === 'fh') return 'FiberHome';
+  if (clean === 'rcm') return 'RCM';
+  return 'Lainnya';
+}
+
+/** Best-effort brand detection from the SN prefix; manual override wins. */
+export function guessBrand(value) {
+  const sn = String(value ?? '')
+    .toUpperCase()
+    .replace(/[\s\-_.]/g, '');
+  if (/^ZTE/.test(sn)) return 'ZTE';
+  if (/^(HWTC|HUAWEI|HW|48575443)/.test(sn)) return 'Huawei';
+  if (/^(FHTT|FIBERHOME|FH)/.test(sn)) return 'FiberHome';
+  if (/^RCM/.test(sn)) return 'RCM';
+  return 'Lainnya';
+}
+
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -67,6 +94,10 @@ function normalizeMatchSession(raw) {
 function normalizeCollectSession(raw) {
   if (!isObject(raw) || !Array.isArray(raw.items)) return null;
   const createdAt = validIso(raw.createdAt) || nowIso();
+  const activeBrand =
+    String(raw.activeBrand || 'auto').toLowerCase() === 'auto'
+      ? 'auto'
+      : normalizeBrand(raw.activeBrand);
   const items = [];
   const byKey = new Map();
   for (const item of raw.items) {
@@ -74,22 +105,25 @@ function normalizeCollectSession(raw) {
     const sn = cleanScanText(item.sn);
     const key = normalizeSn(sn);
     if (!key) continue;
+    const brand = item.brand ? normalizeBrand(item.brand) : guessBrand(sn);
     const qty = Number.isFinite(item.qty) && item.qty >= 1 ? Math.floor(item.qty) : 1;
     const firstAt = validIso(item.firstAt) || createdAt;
     const lastAt = validIso(item.lastAt) || firstAt;
     const existing = byKey.get(key);
     if (existing) {
       existing.qty += qty;
+      if (existing.brand === 'Lainnya' && brand !== 'Lainnya') existing.brand = brand;
       if (Date.parse(lastAt) > Date.parse(existing.lastAt)) existing.lastAt = lastAt;
       continue;
     }
-    const next = { sn, qty, firstAt, lastAt };
+    const next = { sn, brand, qty, firstAt, lastAt };
     byKey.set(key, next);
     items.push(next);
   }
   if (!items.length) return null;
   return {
     items,
+    activeBrand,
     createdAt,
     updatedAt: validIso(raw.updatedAt),
   };
@@ -122,12 +156,14 @@ export function normalizeState(parsed) {
  * Add a scanned code to a collect session.
  * Returns a new session; the previous one is never mutated.
  */
-export function addCollectScan(session, raw, at = nowIso()) {
+export function addCollectScan(session, raw, at = nowIso(), brand = null) {
   const sn = cleanScanText(raw);
   const key = normalizeSn(sn);
   if (!key) return { status: 'invalid', session };
 
   const timestamp = validIso(at) || nowIso();
+  const explicit = brand != null && String(brand).toLowerCase() !== 'auto';
+  const resolvedBrand = explicit ? normalizeBrand(brand) : guessBrand(sn);
   const items = session && Array.isArray(session.items) ? session.items.slice() : [];
   const index = items.findIndex((item) => normalizeSn(item.sn) === key);
 
@@ -137,6 +173,7 @@ export function addCollectScan(session, raw, at = nowIso()) {
       qty: (Number.isFinite(items[index].qty) ? items[index].qty : 1) + 1,
       lastAt: timestamp,
     };
+    if (explicit) next.brand = resolvedBrand;
     items[index] = next;
     return {
       status: 'dup',
@@ -144,13 +181,14 @@ export function addCollectScan(session, raw, at = nowIso()) {
       item: next,
       session: {
         items,
+        activeBrand: session && session.activeBrand ? session.activeBrand : 'auto',
         createdAt: session.createdAt || timestamp,
         updatedAt: timestamp,
       },
     };
   }
 
-  const item = { sn, qty: 1, firstAt: timestamp, lastAt: timestamp };
+  const item = { sn, brand: resolvedBrand, qty: 1, firstAt: timestamp, lastAt: timestamp };
   items.unshift(item);
   return {
     status: 'new',
@@ -158,6 +196,7 @@ export function addCollectScan(session, raw, at = nowIso()) {
     item,
     session: {
       items,
+      activeBrand: session && session.activeBrand ? session.activeBrand : 'auto',
       createdAt: session && session.createdAt ? session.createdAt : timestamp,
       updatedAt: timestamp,
     },
@@ -172,14 +211,44 @@ export function collectSummary(items = []) {
   return { unique: items.length, totalQty };
 }
 
-export function collectExportRows(items = []) {
-  return items.map((item, index) => [
-    index + 1,
-    item.sn,
-    formatStamp(item.firstAt),
-    formatStamp(item.lastAt),
-    Number.isFinite(item.qty) && item.qty > 0 ? item.qty : 1,
-  ]);
+/** Per-brand totals in the fixed display order, skipping empty brands. */
+export function collectBrandSummary(items = []) {
+  const groups = new Map(
+    BRANDS.map((brand) => [brand, { brand, unique: 0, totalQty: 0 }]),
+  );
+  for (const item of items) {
+    const group = groups.get(normalizeBrand(item.brand));
+    group.unique += 1;
+    group.totalQty += Number.isFinite(item.qty) && item.qty > 0 ? item.qty : 1;
+  }
+  return BRANDS.map((brand) => groups.get(brand)).filter((group) => group.unique > 0);
+}
+
+/** Stable sort by brand order, preserving scan order inside each brand. */
+export function sortCollectByBrand(items = []) {
+  const order = new Map(BRANDS.map((brand, index) => [brand, index]));
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const diff =
+        order.get(normalizeBrand(a.item.brand)) - order.get(normalizeBrand(b.item.brand));
+      return diff || a.index - b.index;
+    })
+    .map((entry) => entry.item);
+}
+
+export function collectExportRows(items = [], { withBrand = true } = {}) {
+  return items.map((item, index) => {
+    const row = [index + 1];
+    if (withBrand) row.push(normalizeBrand(item.brand));
+    row.push(
+      item.sn,
+      formatStamp(item.firstAt),
+      formatStamp(item.lastAt),
+      Number.isFinite(item.qty) && item.qty > 0 ? item.qty : 1,
+    );
+    return row;
+  });
 }
 
 export function matchExportRows(items = []) {

@@ -10,12 +10,13 @@
 ## Update 26 Nov 2026 — Scan Bebas + ekspor spreadsheet
 
 - Mode kedua **Scan Bebas**: kumpulkan SN apa pun, qty otomatis bertambah untuk duplikat, edit/hapus, input manual.
-- Ekspor `.xlsx` asli (writer sendiri di `assets/xlsx.js`, tanpa dependency), CSV (`;` + BOM), salin TSV. Rekap mode Cocokkan juga bisa unduh Excel.
+- **Merk otomatis + override**: prefix `ZTE`, `HWTC`/`48575443`, `FHTT`, `RCM` dikenali; chip merk dan dropdown edit bisa memaksa merk. Excel dikelompokkan per merk.
+- Ekspor `.xlsx` asli: sheet **Ringkasan**, **Semua** (kolom Merk), dan satu sheet per merk. CSV (`;` + BOM) dan TSV juga menyertakan kolom Merk. Rekap mode Cocokkan tetap bisa unduh Excel.
 - State v2 menyimpan sesi `match` + `collect` terpisah di `warehouse-sn-scanner/v2`; data v1 dimigrasikan otomatis.
-- File baru: `assets/data.js`, `assets/export.js`, `assets/xlsx.js`.
-- Test baru: `tests/data.test.mjs`, `tests/export.test.mjs`, `tests/e2e-collect.mjs` (`npm run test:collect`).
+- File baru: `assets/data.js`, `assets/export.js`, `assets/xlsx.js` (multi-sheet).
+- Test baru: `tests/data.test.mjs`, `tests/export.test.mjs`, `tests/e2e-collect.mjs`, `tests/e2e-brands.mjs`.
 - Format barcode ditambah: CODE_93, ITF, CODABAR, EAN_8, UPC_A, UPC_E, AZTEC.
-- Verifikasi: unit 30 lulus, E2E lama + collect lulus, file XLSX dibuka `openpyxl` (header bold, freeze A2, qty int), perf throttle 8× raf p95 39 ms.
+- Verifikasi: 38 unit test lulus, E2E lama + collect + brands lulus, XLSX multi-sheet dibuka `openpyxl`, perf throttle 8× raf p95 39 ms.
 
 ## Status deploy — SELESAI (25 Nov 2026)
 

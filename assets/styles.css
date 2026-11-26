@@ -903,6 +903,60 @@ svg {
   padding-bottom: 12px;
 }
 
+.brand-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 8px;
+}
+
+.brand-bar-label {
+  flex: none;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.brand-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.brand-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.brand-chip {
+  min-height: 30px;
+  flex: none;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.brand-chip.is-active {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--accent-ink);
+}
+
 .list-tools {
   flex: none;
   padding: 0 18px;
@@ -1517,6 +1571,14 @@ body.in-scan.modal-open .toast {
   color: var(--text-2);
   font-size: 12px;
   font-weight: 600;
+}
+
+.edit-field ~ .edit-field {
+  margin-top: 14px;
+}
+
+.edit-select {
+  padding-right: 34px;
 }
 
 .edit-input {

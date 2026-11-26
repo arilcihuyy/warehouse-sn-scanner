@@ -8,15 +8,19 @@ import {
 } from './scan-core.js';
 import {
   addCollectScan,
+  collectBrandSummary,
   collectExportRows,
   collectSummary,
   emptyState,
   formatStamp,
+  guessBrand,
   matchExportRows,
+  normalizeBrand,
   normalizeState,
+  sortCollectByBrand,
 } from './data.js';
 import { stampForFilename, toCsv, toTsv } from './export.js';
-import { buildXlsx } from './xlsx.js';
+import { buildWorkbook, buildXlsx } from './xlsx.js';
 import { CameraScanner } from './scanner.js';
 import { FeedbackAudio } from './audio.js';
 
@@ -24,8 +28,10 @@ const STORAGE_KEY = 'warehouse-sn-scanner/v2';
 const LEGACY_KEY = 'warehouse-sn-scanner/v1';
 const SCAN_COOLDOWN_MS = 1500;
 
-const COLLECT_HEADERS = ['No', 'SN', 'Scan pertama', 'Scan terakhir', 'Jumlah'];
-const COLLECT_WIDTHS = [6, 30, 20, 20, 8];
+const COLLECT_HEADERS = ['No', 'Merk', 'SN', 'Scan pertama', 'Scan terakhir', 'Jumlah'];
+const COLLECT_WIDTHS = [6, 14, 30, 20, 20, 8];
+const BRAND_HEADERS = ['No', 'SN', 'Scan pertama', 'Scan terakhir', 'Jumlah'];
+const BRAND_WIDTHS = [6, 30, 20, 20, 8];
 const MATCH_HEADERS = ['No', 'SN', 'Status', 'Waktu scan'];
 const MATCH_WIDTHS = [6, 30, 12, 20];
 
@@ -56,6 +62,7 @@ let modalReturnFocus = null;
 let confirmHandler = null;
 let editIndex = -1;
 let editQty = 1;
+let editBrand = 'auto';
 
 function cacheElements() {
   const ids = [
@@ -105,6 +112,8 @@ function cacheElements() {
     'search-input',
     'search-clear',
     'manual-btn',
+    'brand-bar',
+    'brand-chips',
     'tabs',
     'tab-all',
     'tab-pending',
@@ -143,6 +152,7 @@ function cacheElements() {
     'edit-title',
     'edit-meta',
     'edit-sn',
+    'edit-brand',
     'edit-error',
     'edit-qty',
     'qty-minus',
@@ -218,6 +228,29 @@ function cleanSnText(value) {
     .replace(/\s+/g, ' ');
 }
 
+function activeBrandValue() {
+  const value = state && state.activeBrand ? state.activeBrand : 'auto';
+  return value === 'auto' ? 'auto' : normalizeBrand(value);
+}
+
+/** null means "let the scanner infer it from the SN prefix". */
+function brandForNextScan() {
+  const value = activeBrandValue();
+  return value === 'auto' ? null : value;
+}
+
+function renderBrandBar() {
+  const visible = mode === 'collect' && Boolean(state);
+  el['brand-bar'].hidden = !visible;
+  if (!visible) return;
+  const active = activeBrandValue();
+  for (const chip of el['brand-chips'].querySelectorAll('.brand-chip')) {
+    const on = chip.dataset.brand === active;
+    chip.classList.toggle('is-active', on);
+    chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+}
+
 /* ------------------------------------------------------------------ views */
 
 function showHome() {
@@ -252,8 +285,13 @@ function renderModeHome() {
   const session = store.collect;
   if (session) {
     const summary = collectSummary(session.items);
+    const brands = collectBrandSummary(session.items)
+      .map((group) => `${group.brand} ${group.unique}`)
+      .join(' · ');
     el['collect-count'].textContent = `${summary.unique} SN · ${summary.totalQty} scan`;
-    el['collect-sub'].textContent = `Dimulai ${formatDateTime(session.createdAt)}`;
+    el['collect-sub'].textContent = `Dimulai ${formatDateTime(session.createdAt)}${
+      brands ? ` · ${brands}` : ''
+    }`;
     el['collect-start'].querySelector('span').textContent = 'Lanjutkan scan';
     el['collect-reset'].hidden = false;
   } else {
@@ -540,7 +578,7 @@ function handleMatchScan(text, key) {
 }
 
 function handleCollectScan(text, now) {
-  const result = addCollectScan(state, text, new Date(now).toISOString());
+  const result = addCollectScan(state, text, new Date(now).toISOString(), brandForNextScan());
   if (result.status === 'invalid') return;
 
   store.collect = result.session;
@@ -558,7 +596,7 @@ function handleCollectScan(text, now) {
     flashFrame('hit');
     audio.success();
     vibrate(100);
-    setHint(`Tersimpan: ${item.sn}`, 'hit');
+    setHint(`Tersimpan: ${item.brand} · ${item.sn}`, 'hit');
   }
   renderAll({ flashKey: normalizeSn(item.sn) });
 }
@@ -619,6 +657,7 @@ function renderMatchAll({ flashKey = null } = {}) {
   el['complete-line'].hidden = !(total > 0 && found === total);
   el['tabs'].hidden = false;
   el['manual-btn'].hidden = true;
+  el['brand-bar'].hidden = true;
   el['bottom-label'].textContent = 'Rekap';
 
   el['found-count'].textContent = String(found);
@@ -644,7 +683,9 @@ function renderCollectAll({ flashKey = null } = {}) {
   el['complete-line'].hidden = true;
   el['tabs'].hidden = true;
   el['manual-btn'].hidden = false;
+  el['brand-bar'].hidden = false;
   el['bottom-label'].textContent = 'Ekspor';
+  renderBrandBar();
 
   el['found-count'].textContent = String(summary.unique);
   el['total-count'].textContent = String(summary.totalQty);
@@ -768,7 +809,7 @@ function renderCollectList({ flashKey = null } = {}) {
     code.textContent = item.sn;
     const meta = document.createElement('span');
     meta.className = 'sn-meta';
-    meta.textContent = `${momentLabel(item.lastAt)} · ${item.qty}× scan`;
+    meta.textContent = `${item.brand || 'Lainnya'} · ${momentLabel(item.lastAt)} · ${item.qty}× scan`;
     main.append(code, meta);
 
     const edit = document.createElement('span');
@@ -916,7 +957,7 @@ async function handleFile(file) {
 
 function startCollectSession() {
   const now = new Date().toISOString();
-  store.collect = { items: [], createdAt: now, updatedAt: now };
+  store.collect = { items: [], activeBrand: 'auto', createdAt: now, updatedAt: now };
   applyMode('collect', { persist: false });
   state = store.collect;
   reindex();
@@ -965,6 +1006,8 @@ function openEdit(index = null) {
   el['edit-delete'].hidden = !item;
   el['edit-error'].hidden = true;
   editQty = item ? item.qty : 1;
+  editBrand = item ? normalizeBrand(item.brand) : activeBrandValue();
+  el['edit-brand'].value = editBrand;
   updateQtyUi();
   openLayer(el['edit-modal']);
   window.setTimeout(() => {
@@ -994,6 +1037,8 @@ function saveEdit(event) {
     return;
   }
   const key = normalizeSn(sn);
+  const brandChoice = el['edit-brand'].value || editBrand;
+  const brand = brandChoice === 'auto' ? guessBrand(sn) : normalizeBrand(brandChoice);
   const duplicate = state.items.findIndex(
     (item, index) => index !== editIndex && normalizeSn(item.sn) === key,
   );
@@ -1007,11 +1052,18 @@ function saveEdit(event) {
     state.items[editIndex] = {
       ...state.items[editIndex],
       sn,
+      brand,
       qty: editQty,
     };
   } else {
     const now = new Date().toISOString();
-    state.items.unshift({ sn, qty: editQty, firstAt: now, lastAt: now });
+    state.items.unshift({
+      sn,
+      brand,
+      qty: editQty,
+      firstAt: now,
+      lastAt: now,
+    });
   }
   const editing = editIndex >= 0;
   saveActive();
@@ -1180,9 +1232,10 @@ function closeRekap() {
 function openExport() {
   if (!state || mode !== 'collect') return;
   const summary = collectSummary(state.items);
+  const brandCount = collectBrandSummary(state.items).length;
   el['export-unique'].textContent = String(summary.unique);
   el['export-total'].textContent = String(summary.totalQty);
-  el['export-sub'].textContent = `Mulai ${formatDateTime(state.createdAt)} · ${state.items.length} SN`;
+  el['export-sub'].textContent = `Mulai ${formatDateTime(state.createdAt)} · ${state.items.length} SN · ${brandCount} merk`;
   const empty = state.items.length === 0;
   el['export-xlsx'].disabled = empty;
   el['export-csv'].disabled = empty;
@@ -1224,16 +1277,45 @@ function exportCollect(kind) {
     return;
   }
   const stamp = stampForFilename(new Date());
-  const rows = collectExportRows(state.items);
+  const sorted = sortCollectByBrand(state.items);
+  const rows = collectExportRows(sorted);
   if (kind === 'xlsx') {
-    downloadXlsx({
-      sheetName: 'Scan Bebas',
-      headers: COLLECT_HEADERS,
-      rows,
-      widths: COLLECT_WIDTHS,
-      filename: `scan-bebas-${stamp}.xlsx`,
-    });
-    toast('Excel diunduh', 'success');
+    const summary = collectBrandSummary(state.items);
+    const totalUnique = summary.reduce((sum, group) => sum + group.unique, 0);
+    const totalQty = summary.reduce((sum, group) => sum + group.totalQty, 0);
+    const sheets = [
+      {
+        name: 'Ringkasan',
+        headers: ['Merk', 'SN unik', 'Total scan'],
+        rows: [
+          ...summary.map((group) => [group.brand, group.unique, group.totalQty]),
+          ['TOTAL', totalUnique, totalQty],
+        ],
+        widths: [16, 10, 12],
+      },
+      {
+        name: 'Semua',
+        headers: COLLECT_HEADERS,
+        rows,
+        widths: COLLECT_WIDTHS,
+      },
+    ];
+    for (const group of summary) {
+      const items = sorted.filter((item) => normalizeBrand(item.brand) === group.brand);
+      sheets.push({
+        name: group.brand,
+        headers: BRAND_HEADERS,
+        rows: collectExportRows(items, { withBrand: false }),
+        widths: BRAND_WIDTHS,
+      });
+    }
+    downloadBlob(
+      new Blob([buildWorkbook({ sheets })], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+      `scan-bebas-${stamp}.xlsx`,
+    );
+    toast('Excel per merk diunduh', 'success');
   } else if (kind === 'csv') {
     const csv = `\ufeff${toCsv(COLLECT_HEADERS, rows)}`;
     downloadBlob(
@@ -1263,7 +1345,7 @@ function exportMatchXlsx() {
 
 function copyCollectTsv() {
   if (!state || mode !== 'collect') return;
-  const rows = collectExportRows(state.items);
+  const rows = collectExportRows(sortCollectByBrand(state.items));
   copyWithFeedback(toTsv(COLLECT_HEADERS, rows), 'TSV');
 }
 
@@ -1465,6 +1547,15 @@ function wireEvents() {
   el['collect-start'].addEventListener('click', requestCollectStart);
   el['collect-reset'].addEventListener('click', requestCollectNew);
 
+  el['brand-chips'].addEventListener('click', (event) => {
+    const chip = event.target.closest('.brand-chip');
+    if (!chip || !state || mode !== 'collect') return;
+    const value = chip.dataset.brand;
+    state.activeBrand = value === 'auto' ? 'auto' : normalizeBrand(value);
+    saveActive();
+    renderBrandBar();
+  });
+
   el['search-input'].addEventListener('input', () => {
     search = el['search-input'].value;
     el['search-clear'].hidden = !search;
@@ -1527,6 +1618,9 @@ function wireEvents() {
   el['edit-form'].addEventListener('submit', saveEdit);
   el['edit-cancel'].addEventListener('click', closeEdit);
   el['edit-delete'].addEventListener('click', deleteEdited);
+  el['edit-brand'].addEventListener('change', () => {
+    editBrand = el['edit-brand'].value;
+  });
   el['qty-minus'].addEventListener('click', () => {
     editQty = Math.max(1, editQty - 1);
     updateQtyUi();

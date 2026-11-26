@@ -240,6 +240,18 @@
             </p>
           </div>
 
+          <div id="brand-bar" class="brand-bar" hidden>
+            <span class="brand-bar-label">Merk</span>
+            <div id="brand-chips" class="brand-chips" role="group" aria-label="Merk untuk scan berikutnya">
+              <button class="brand-chip is-active" type="button" data-brand="auto">Auto</button>
+              <button class="brand-chip" type="button" data-brand="ZTE">ZTE</button>
+              <button class="brand-chip" type="button" data-brand="Huawei">Huawei</button>
+              <button class="brand-chip" type="button" data-brand="FiberHome">FiberHome</button>
+              <button class="brand-chip" type="button" data-brand="RCM">RCM</button>
+              <button class="brand-chip" type="button" data-brand="Lainnya">Lainnya</button>
+            </div>
+          </div>
+
           <div class="list-tools">
             <div class="search-row">
               <div class="search-wrap">
@@ -396,8 +408,8 @@
             </button>
           </div>
           <p class="export-note">
-            .xlsx langsung terbuka di Excel atau diunggah ke Google Sheets. CSV memakai pemisah
-            titik koma agar rapi di Excel Indonesia.
+            Excel berisi sheet <strong>Ringkasan</strong>, <strong>Semua</strong>, dan satu sheet
+            per merk. CSV memakai pemisah titik koma agar rapi di Excel Indonesia.
           </p>
         </div>
 
@@ -423,17 +435,31 @@
         </header>
 
         <form id="edit-form" class="sheet-body edit-body" novalidate>
-          <label class="edit-label" for="edit-sn">Nomor seri (SN)</label>
-          <input
-            id="edit-sn"
-            class="edit-input"
-            type="text"
-            inputmode="text"
-            autocomplete="off"
-            spellcheck="false"
-            autocapitalize="characters"
-          />
+          <div class="edit-field">
+            <label class="edit-label" for="edit-sn">Nomor seri (SN)</label>
+            <input
+              id="edit-sn"
+              class="edit-input"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              spellcheck="false"
+              autocapitalize="characters"
+            />
+          </div>
           <p id="edit-error" class="form-error" role="alert" hidden></p>
+
+          <div class="edit-field">
+            <label class="edit-label" for="edit-brand">Merk</label>
+            <select id="edit-brand" class="edit-input edit-select">
+              <option value="auto">Auto (dari prefix SN)</option>
+              <option value="ZTE">ZTE</option>
+              <option value="Huawei">Huawei</option>
+              <option value="FiberHome">FiberHome</option>
+              <option value="RCM">RCM</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
 
           <div class="qty-row">
             <span class="qty-label">Jumlah</span>

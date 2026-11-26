@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { stampForFilename, toCsv, toTsv } from '../assets/export.js';
-import { buildXlsx } from '../assets/xlsx.js';
+import { buildWorkbook, buildXlsx } from '../assets/xlsx.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -81,6 +81,45 @@ test('buildXlsx sanitizes forbidden sheet names', () => {
   const text = new TextDecoder('latin1').decode(bytes);
   assert.ok(text.includes('name="ScanNov2026"'));
   assert.ok(!text.includes('name="Scan/Nov'));
+});
+
+test('buildWorkbook writes one worksheet per brand plus the summary', () => {
+  const sheets = [
+    {
+      name: 'Ringkasan',
+      headers: ['Merk', 'SN unik', 'Total scan'],
+      rows: [
+        ['ZTE', 2, 3],
+        ['Huawei', 1, 1],
+      ],
+      widths: [16, 10, 12],
+    },
+    {
+      name: 'Semua',
+      headers: ['No', 'Merk', 'SN'],
+      rows: [
+        [1, 'ZTE', 'ZTEGC1'],
+        [2, 'ZTE', 'ZTEGC2'],
+        [3, 'Huawei', 'HWTC1'],
+      ],
+      widths: [6, 14, 28],
+    },
+    { name: 'ZTE', headers: ['No', 'SN'], rows: [[1, 'ZTEGC1']] },
+    { name: 'Huawei', headers: ['No', 'SN'], rows: [[1, 'HWTC1']] },
+  ];
+  const bytes = buildWorkbook({ sheets });
+  const text = new TextDecoder('latin1').decode(bytes);
+  assert.ok(text.includes('xl/worksheets/sheet1.xml'));
+  assert.ok(text.includes('xl/worksheets/sheet4.xml'));
+  assert.ok(text.includes('name="Ringkasan"'));
+  assert.ok(text.includes('name="ZTE"'));
+  assert.ok(text.includes('name="Huawei"'));
+  assert.ok(text.includes('Target="worksheets/sheet4.xml"'));
+  const entries = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(
+    bytes.length - 12,
+    true,
+  );
+  assert.equal(entries, 9);
 });
 
 console.log(`\n${passed} passed`);
