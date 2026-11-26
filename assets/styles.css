@@ -229,6 +229,102 @@ svg {
   text-transform: none;
 }
 
+.brand {
+  margin-bottom: 22px;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  margin-bottom: 18px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.mode-tab {
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.mode-tab:hover {
+  color: var(--text);
+}
+
+.mode-tab.is-active {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.collect-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.collect-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.collect-icon {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-2);
+}
+
+.collect-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.collect-info {
+  min-width: 0;
+}
+
+.collect-count {
+  margin: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.collect-sub {
+  margin: 3px 0 0;
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.collect-reset {
+  width: 100%;
+  margin-top: 6px;
+}
+
 .import-heading {
   margin-bottom: 22px;
 }
@@ -521,7 +617,7 @@ svg {
 
 .camera-top {
   position: absolute;
-  z-index: 4;
+  z-index: 9;
   top: 0;
   right: 0;
   left: 0;
@@ -531,6 +627,21 @@ svg {
   gap: 12px;
   padding: calc(12px + env(safe-area-inset-top)) 16px 0;
   pointer-events: none;
+}
+
+.camera-top-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.camera-top-left .icon-btn {
+  width: 36px;
+  height: 36px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.46);
 }
 
 .camera-brand {
@@ -783,15 +894,60 @@ svg {
   height: 12px;
 }
 
+.progress-block.is-collect .progress-track,
+.progress-block.is-collect .complete-line {
+  display: none;
+}
+
+.progress-block.is-collect {
+  padding-bottom: 12px;
+}
+
 .list-tools {
   flex: none;
   padding: 0 18px;
 }
 
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.manual-btn {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #2e3238;
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text-2);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.manual-btn:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.manual-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .search-wrap {
   position: relative;
   display: flex;
+  flex: 1;
   align-items: center;
+  min-width: 0;
 }
 
 .search-wrap > svg {
@@ -1001,6 +1157,47 @@ svg {
   color: var(--success);
 }
 
+.sn-qty {
+  min-width: 36px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sn-qty.is-many {
+  border-color: rgba(132, 217, 165, 0.42);
+  color: var(--success);
+}
+
+.sn-edit {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+
+.sn-edit svg {
+  width: 15px;
+  height: 15px;
+}
+
+.sn-row.is-collect .sn-meta {
+  font-variant-numeric: tabular-nums;
+}
+
 .sn-row.is-flash {
   animation: row-flash 0.7s ease-out;
 }
@@ -1107,6 +1304,10 @@ body:not(.in-scan) .toast {
 body.modal-open .toast {
   top: calc(14px + env(safe-area-inset-top));
   bottom: auto;
+}
+
+body.in-scan.modal-open .toast {
+  top: calc(62px + env(safe-area-inset-top));
 }
 
 .toast.is-visible {
@@ -1279,6 +1480,130 @@ body.modal-open .toast {
 
 .summary-cell.is-left span {
   color: var(--warning);
+}
+
+.summary-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.export-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.export-actions .btn {
+  width: 100%;
+  min-height: 46px;
+}
+
+.export-note {
+  margin: 14px 0 0;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.sheet-compact {
+  max-height: 86dvh;
+}
+
+.edit-body {
+  padding-top: 16px;
+}
+
+.edit-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.edit-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 16px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.edit-input:focus {
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 3px rgba(242, 243, 245, 0.05);
+}
+
+.qty-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.qty-label {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.qty-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.qty-stepper button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.qty-stepper button:hover {
+  border-color: var(--text-3);
+}
+
+.qty-stepper strong {
+  min-width: 30px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.edit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.edit-actions .btn {
+  min-height: 46px;
+}
+
+.edit-actions .btn-danger-ghost {
+  border-color: rgba(226, 139, 139, 0.28);
 }
 
 .rekap-section + .rekap-section {

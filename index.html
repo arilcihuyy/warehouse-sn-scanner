@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#070a09" />
     <meta
       name="description"
-      content="Warehouse SN Scanner — cocokkan barcode perangkat dengan daftar Serial Number langsung dari browser HP."
+      content="Warehouse SN Scanner — cocokkan barcode perangkat dengan daftar Serial Number, atau kumpulkan SN bebas dan ekspor ke Excel."
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -19,7 +19,7 @@
   </head>
   <body>
     <main class="app-shell">
-      <!-- ------------------------------------------------------ import -->
+      <!-- -------------------------------------------------------- home -->
       <section id="import-view" class="view import-view">
         <div class="import-inner">
           <header class="brand">
@@ -29,51 +29,99 @@
             <span class="brand-kicker">Warehouse SN Scanner</span>
           </header>
 
-          <div class="import-heading">
-            <h1>Cocokkan SN perangkat</h1>
-            <p>
-              Tempel atau impor daftar SN. Progres tersimpan otomatis.
-            </p>
+          <div id="mode-switch" class="mode-switch" role="tablist" aria-label="Mode scan">
+            <button
+              class="mode-tab is-active"
+              type="button"
+              role="tab"
+              data-mode="match"
+              aria-selected="true"
+            >
+              Cocokkan
+            </button>
+            <button
+              class="mode-tab"
+              type="button"
+              role="tab"
+              data-mode="collect"
+              aria-selected="false"
+            >
+              Scan bebas
+            </button>
           </div>
 
-          <p id="insecure-note" class="insecure-note" hidden>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-            Halaman ini tanpa HTTPS. Kamera hanya aktif lewat <strong>https://</strong> atau <strong>localhost</strong>.
-          </p>
-
-          <form id="import-form" class="import-card" novalidate>
-            <div class="field-head">
-              <label for="sn-input">Daftar SN</label>
-              <span id="preview-count" class="preview-count" aria-live="polite">0 SN</span>
+          <div id="match-panel">
+            <div class="import-heading">
+              <h1>Cocokkan SN perangkat</h1>
+              <p>Tempel atau impor daftar SN. Progres tersimpan otomatis.</p>
             </div>
 
-            <div class="textarea-wrap">
-              <textarea
-                id="sn-input"
-                spellcheck="false"
-                autocomplete="off"
-                autocapitalize="characters"
-                placeholder="Tempel SN di sini..."
-              ></textarea>
-              <p class="field-hint">Satu per baris, atau pisahkan koma / spasi.</p>
-            </div>
+            <p id="insecure-note" class="insecure-note" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9 2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+              Halaman ini tanpa HTTPS. Kamera hanya aktif lewat <strong>https://</strong> atau <strong>localhost</strong>.
+            </p>
 
-            <div class="import-tools">
-              <button id="file-btn" class="btn btn-ghost btn-file" type="button">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
-                Impor file
+            <form id="import-form" class="import-card" novalidate>
+              <div class="field-head">
+                <label for="sn-input">Daftar SN</label>
+                <span id="preview-count" class="preview-count" aria-live="polite">0 SN</span>
+              </div>
+
+              <div class="textarea-wrap">
+                <textarea
+                  id="sn-input"
+                  spellcheck="false"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  placeholder="Tempel SN di sini..."
+                ></textarea>
+                <p class="field-hint">Satu per baris, atau pisahkan koma / spasi.</p>
+              </div>
+
+              <div class="import-tools">
+                <button id="file-btn" class="btn btn-ghost btn-file" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+                  Impor file
+                </button>
+                <input id="file-input" type="file" accept=".txt,.csv,text/plain,text/csv" hidden />
+                <span id="file-note" class="file-note"></span>
+              </div>
+
+              <p id="import-error" class="form-error" role="alert" hidden></p>
+
+              <button id="start-btn" class="btn btn-primary btn-start" type="submit" disabled>
+                <span>Mulai scan</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
               </button>
-              <input id="file-input" type="file" accept=".txt,.csv,text/plain,text/csv" hidden />
-              <span id="file-note" class="file-note"></span>
+            </form>
+          </div>
+
+          <div id="collect-panel" hidden>
+            <div class="import-heading">
+              <h1>Kumpulkan SN</h1>
+              <p>Scan barcode apa pun. Setiap SN masuk daftar dan siap diekspor ke Excel.</p>
             </div>
 
-            <p id="import-error" class="form-error" role="alert" hidden></p>
+            <div class="collect-card">
+              <div class="collect-card-head">
+                <span class="collect-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6v12M7.5 6v12M11 6v12M14.5 6v12M18 6v12M20.5 6v12"/></svg>
+                </span>
+                <div class="collect-info">
+                  <p id="collect-count" class="collect-count">Belum ada sesi</p>
+                  <p id="collect-sub" class="collect-sub">Mulai scan, hasilnya tersimpan otomatis.</p>
+                </div>
+              </div>
 
-            <button id="start-btn" class="btn btn-primary btn-start" type="submit" disabled>
-              <span>Mulai scan</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
-            </button>
-          </form>
+              <button id="collect-start" class="btn btn-primary btn-start" type="button">
+                <span>Mulai scan bebas</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+              </button>
+              <button id="collect-reset" class="btn btn-danger-ghost collect-reset" type="button" hidden>
+                Mulai sesi baru
+              </button>
+            </div>
+          </div>
 
           <p class="privacy-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
@@ -100,9 +148,14 @@
           </div>
 
           <div class="camera-top">
-            <div class="camera-brand">
-              <span>SN Scanner</span>
-              <span id="camera-date" class="camera-date"></span>
+            <div class="camera-top-left">
+              <button id="home-btn" class="icon-btn" type="button" aria-label="Kembali ke menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>
+              </button>
+              <div class="camera-brand">
+                <span id="camera-mode">SN Scanner</span>
+                <span id="camera-date" class="camera-date"></span>
+              </div>
             </div>
             <div class="camera-actions">
               <button
@@ -137,7 +190,7 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6H8l1.4-2h5.2L16 6h1.5A2.5 2.5 0 0 1 20 8.5v8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-8Z"/><circle cx="12" cy="12.5" r="3.4"/></svg>
             </span>
             <h3>Kamera nonaktif</h3>
-            <p>Nyalakan kamera untuk mulai mencocokkan SN. Progresmu sudah tersimpan.</p>
+            <p>Nyalakan kamera untuk mulai scan. Progresmu sudah tersimpan.</p>
             <button id="idle-start" class="btn btn-primary" type="button">Aktifkan Kamera</button>
           </div>
 
@@ -155,7 +208,7 @@
               <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="3.6" height="14" rx="1"/><rect x="13.4" y="5" width="3.6" height="14" rx="1"/></svg>
             </span>
             <h3>Kamera dijeda</h3>
-            <p>Scan dihentikan sementara. Daftar tetap bisa dicentang manual.</p>
+            <p>Scan dihentikan sementara. Daftar tetap bisa diubah manual.</p>
             <button id="paused-resume" class="btn btn-primary" type="button">Lanjutkan Scan</button>
           </div>
         </div>
@@ -164,7 +217,7 @@
           <div id="progress-block" class="progress-block">
             <div class="progress-top">
               <div class="progress-numbers">
-                <span class="progress-label">Ketemu</span>
+                <span id="progress-label" class="progress-label">Ketemu</span>
                 <strong id="found-count">0</strong>
                 <span class="progress-total">/ <span id="total-count">0</span></span>
               </div>
@@ -188,19 +241,24 @@
           </div>
 
           <div class="list-tools">
-            <div class="search-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
-              <input
-                id="search-input"
-                type="search"
-                inputmode="search"
-                placeholder="Cari SN..."
-                autocomplete="off"
-                spellcheck="false"
-                aria-label="Cari SN"
-              />
-              <button id="search-clear" class="search-clear" type="button" hidden aria-label="Hapus pencarian">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+            <div class="search-row">
+              <div class="search-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+                <input
+                  id="search-input"
+                  type="search"
+                  inputmode="search"
+                  placeholder="Cari SN..."
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="Cari SN"
+                />
+                <button id="search-clear" class="search-clear" type="button" hidden aria-label="Hapus pencarian">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+                </button>
+              </div>
+              <button id="manual-btn" class="manual-btn" type="button" hidden aria-label="Tambah SN manual">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
               </button>
             </div>
 
@@ -221,7 +279,10 @@
 
           <div class="bottom-bar">
             <button id="rekap-btn" class="btn btn-primary btn-rekap" type="button">
-              <span class="btn-label">Rekap</span>
+              <span class="btn-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+                <span id="bottom-label">Rekap</span>
+              </span>
               <span id="rekap-count" class="btn-count">0/0</span>
             </button>
           </div>
@@ -284,7 +345,8 @@
         </div>
 
         <footer class="sheet-actions">
-          <button id="copy-report" class="btn btn-primary" type="button">
+          <button id="rekap-xlsx" class="btn btn-primary" type="button">Unduh Excel (.xlsx)</button>
+          <button id="copy-report" class="btn btn-secondary" type="button">
             Salin laporan lengkap
           </button>
           <button id="copy-left" class="btn btn-secondary" type="button">
@@ -292,6 +354,101 @@
           </button>
           <button id="reset-btn" class="btn btn-danger-ghost" type="button">Reset sesi</button>
         </footer>
+      </section>
+    </div>
+
+    <!-- ------------------------------------------------------ ekspor -->
+    <div id="export-modal" class="modal" hidden>
+      <div class="modal-backdrop" data-export-close></div>
+      <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="export-title">
+        <header class="sheet-head">
+          <div>
+            <p class="sheet-kicker">Scan bebas</p>
+            <h2 id="export-title">Ekspor</h2>
+            <p id="export-sub" class="sheet-sub"></p>
+          </div>
+          <button id="export-close" class="icon-btn icon-btn-dark" type="button" aria-label="Tutup ekspor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+          </button>
+        </header>
+
+        <div class="sheet-body">
+          <div class="summary summary-2">
+            <div class="summary-cell">
+              <span id="export-unique">0</span>
+              <small>SN unik</small>
+            </div>
+            <div class="summary-cell is-found">
+              <span id="export-total">0</span>
+              <small>Total scan</small>
+            </div>
+          </div>
+
+          <div class="export-actions">
+            <button id="export-xlsx" class="btn btn-primary" type="button">
+              Unduh Excel (.xlsx)
+            </button>
+            <button id="export-csv" class="btn btn-secondary" type="button">
+              Unduh CSV
+            </button>
+            <button id="export-tsv" class="btn btn-secondary" type="button">
+              Salin untuk tempel (TSV)
+            </button>
+          </div>
+          <p class="export-note">
+            .xlsx langsung terbuka di Excel atau diunggah ke Google Sheets. CSV memakai pemisah
+            titik koma agar rapi di Excel Indonesia.
+          </p>
+        </div>
+
+        <footer class="sheet-actions">
+          <button id="export-reset" class="btn btn-danger-ghost" type="button">Reset sesi</button>
+        </footer>
+      </section>
+    </div>
+
+    <!-- -------------------------------------------------------- edit -->
+    <div id="edit-modal" class="modal" hidden>
+      <div class="modal-backdrop" data-edit-close></div>
+      <section class="sheet sheet-compact" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+        <header class="sheet-head">
+          <div>
+            <p class="sheet-kicker">Scan bebas</p>
+            <h2 id="edit-title">Ubah SN</h2>
+            <p id="edit-meta" class="sheet-sub"></p>
+          </div>
+          <button id="edit-cancel" class="icon-btn icon-btn-dark" type="button" aria-label="Tutup">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+          </button>
+        </header>
+
+        <form id="edit-form" class="sheet-body edit-body" novalidate>
+          <label class="edit-label" for="edit-sn">Nomor seri (SN)</label>
+          <input
+            id="edit-sn"
+            class="edit-input"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            spellcheck="false"
+            autocapitalize="characters"
+          />
+          <p id="edit-error" class="form-error" role="alert" hidden></p>
+
+          <div class="qty-row">
+            <span class="qty-label">Jumlah</span>
+            <div class="qty-stepper">
+              <button id="qty-minus" type="button" aria-label="Kurangi jumlah">−</button>
+              <strong id="edit-qty">1</strong>
+              <button id="qty-plus" type="button" aria-label="Tambah jumlah">+</button>
+            </div>
+          </div>
+
+          <div class="edit-actions">
+            <button id="edit-delete" class="btn btn-danger-ghost" type="button">Hapus</button>
+            <button class="btn btn-primary" type="submit">Simpan</button>
+          </div>
+        </form>
       </section>
     </div>
 

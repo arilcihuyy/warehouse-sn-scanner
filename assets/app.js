@@ -6,18 +6,39 @@ import {
   parseSnFile,
   parseSnText,
 } from './scan-core.js';
+import {
+  addCollectScan,
+  collectExportRows,
+  collectSummary,
+  emptyState,
+  formatStamp,
+  matchExportRows,
+  normalizeState,
+} from './data.js';
+import { stampForFilename, toCsv, toTsv } from './export.js';
+import { buildXlsx } from './xlsx.js';
 import { CameraScanner } from './scanner.js';
 import { FeedbackAudio } from './audio.js';
 
-const STORAGE_KEY = 'warehouse-sn-scanner/v1';
+const STORAGE_KEY = 'warehouse-sn-scanner/v2';
+const LEGACY_KEY = 'warehouse-sn-scanner/v1';
 const SCAN_COOLDOWN_MS = 1500;
+
+const COLLECT_HEADERS = ['No', 'SN', 'Scan pertama', 'Scan terakhir', 'Jumlah'];
+const COLLECT_WIDTHS = [6, 30, 20, 20, 8];
+const MATCH_HEADERS = ['No', 'SN', 'Status', 'Waktu scan'];
+const MATCH_WIDTHS = [6, 30, 12, 20];
 
 const ICON_CHECK =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7.3"/></svg>';
 const ICON_BARCODE =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M4 6v12M7.5 6v12M11 6v12M14.5 6v12M18 6v12M20.5 6v12"/></svg>';
+const ICON_EDIT =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14 7l3 3"/></svg>';
 
 const el = {};
+let store = emptyState();
+let mode = 'match';
 let state = null;
 let itemIndex = new Map();
 let filter = 'all';
@@ -32,10 +53,20 @@ let hintTimer = 0;
 let frameTimer = 0;
 let toastTimer = 0;
 let modalReturnFocus = null;
+let confirmHandler = null;
+let editIndex = -1;
+let editQty = 1;
 
 function cacheElements() {
   const ids = [
     'import-view',
+    'mode-switch',
+    'match-panel',
+    'collect-panel',
+    'collect-count',
+    'collect-sub',
+    'collect-start',
+    'collect-reset',
     'import-form',
     'sn-input',
     'preview-count',
@@ -48,6 +79,7 @@ function cacheElements() {
     'scan-view',
     'camera-stage',
     'camera-video',
+    'camera-mode',
     'scan-frame',
     'scan-hint',
     'camera-idle',
@@ -60,8 +92,10 @@ function cacheElements() {
     'paused-resume',
     'pause-btn',
     'torch-btn',
+    'home-btn',
     'camera-date',
     'progress-block',
+    'progress-label',
     'found-count',
     'total-count',
     'progress-pct',
@@ -70,12 +104,14 @@ function cacheElements() {
     'complete-line',
     'search-input',
     'search-clear',
+    'manual-btn',
     'tabs',
     'tab-all',
     'tab-pending',
     'tab-found',
     'sn-list',
     'rekap-btn',
+    'bottom-label',
     'rekap-count',
     'toast',
     'toast-text',
@@ -89,10 +125,32 @@ function cacheElements() {
     'found-count-2',
     'left-list',
     'found-list',
+    'rekap-xlsx',
     'copy-report',
     'copy-left',
     'reset-btn',
+    'export-modal',
+    'export-close',
+    'export-sub',
+    'export-unique',
+    'export-total',
+    'export-xlsx',
+    'export-csv',
+    'export-tsv',
+    'export-reset',
+    'edit-modal',
+    'edit-form',
+    'edit-title',
+    'edit-meta',
+    'edit-sn',
+    'edit-error',
+    'edit-qty',
+    'qty-minus',
+    'qty-plus',
+    'edit-delete',
+    'edit-cancel',
     'confirm-modal',
+    'confirm-title',
     'confirm-cancel',
     'confirm-reset',
     'confirm-text',
@@ -102,41 +160,31 @@ function cacheElements() {
 
 /* ------------------------------------------------------------------ state */
 
-function loadState() {
+function loadStore() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !Array.isArray(parsed.items) || !parsed.items.length) return null;
-    const items = parsed.items
-      .filter((item) => item && typeof item.sn === 'string' && item.sn.trim())
-      .map((item) => ({
-        sn: String(item.sn).trim().toUpperCase(),
-        status: item.status === 'found' ? 'found' : 'pending',
-        scannedAt:
-          item.status === 'found' && item.scannedAt && !Number.isNaN(Date.parse(item.scannedAt))
-            ? item.scannedAt
-            : null,
-      }));
-    if (!items.length) return null;
-    return {
-      items,
-      createdAt: parsed.createdAt || new Date().toISOString(),
-      updatedAt: parsed.updatedAt || null,
-    };
+    if (raw) return { store: normalizeState(JSON.parse(raw)), migrated: false };
+    const legacy = localStorage.getItem(LEGACY_KEY);
+    if (legacy) return { store: normalizeState(JSON.parse(legacy)), migrated: true };
   } catch {
-    return null;
+    /* corrupted storage falls through to an empty state */
+  }
+  return { store: emptyState(), migrated: false };
+}
+
+function saveStore() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    return true;
+  } catch {
+    toast('Gagal menyimpan data', 'error');
+    return false;
   }
 }
 
-function saveState() {
-  if (!state) return;
-  state.updatedAt = new Date().toISOString();
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    toast('Gagal menyimpan progres', 'error');
-  }
+function saveActive() {
+  if (state) state.updatedAt = new Date().toISOString();
+  return saveStore();
 }
 
 function reindex() {
@@ -145,25 +193,92 @@ function reindex() {
   for (const item of state.items) itemIndex.set(normalizeSn(item.sn), item);
 }
 
+function applyMode(next, { persist = true } = {}) {
+  mode = next === 'collect' ? 'collect' : 'match';
+  state = store[mode] || null;
+  store.lastMode = mode;
+  filter = 'all';
+  updateFilterTabs();
+  clearSearch();
+  reindex();
+  if (persist) saveStore();
+  renderModeHome();
+}
+
+function clearSearch() {
+  search = '';
+  if (el['search-input']) el['search-input'].value = '';
+  if (el['search-clear']) el['search-clear'].hidden = true;
+}
+
+function cleanSnText(value) {
+  return String(value ?? '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
 /* ------------------------------------------------------------------ views */
 
-function showImportView() {
-  if (el['scan-view']) el['scan-view'].hidden = true;
+function showHome() {
+  if (scanner && scanner.isRunning) scanner.stop();
+  cameraAttempt += 1;
+  cameraStarting = false;
+  el['scan-view'].hidden = true;
   el['import-view'].hidden = false;
   document.body.classList.remove('in-scan');
   document.title = 'Warehouse SN Scanner';
-  setFilter('all');
-  if (el['sn-list']) el['sn-list'].replaceChildren();
+  el['paused-overlay'].hidden = true;
+  el['camera-error'].hidden = true;
+  el['camera-idle'].hidden = true;
+  el['pause-btn'].classList.remove('is-paused');
+  el['pause-btn'].setAttribute('aria-pressed', 'false');
+  el['pause-btn'].setAttribute('aria-label', 'Jeda kamera');
+  renderModeHome();
+}
+
+function renderModeHome() {
+  const tabs = el['mode-switch'].querySelectorAll('.mode-tab');
+  for (const tab of tabs) {
+    const active = tab.dataset.mode === mode;
+    tab.classList.toggle('is-active', active);
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    tab.tabIndex = active ? 0 : -1;
+  }
+
+  el['match-panel'].hidden = mode !== 'match';
+  el['collect-panel'].hidden = mode !== 'collect';
+
+  const session = store.collect;
+  if (session) {
+    const summary = collectSummary(session.items);
+    el['collect-count'].textContent = `${summary.unique} SN · ${summary.totalQty} scan`;
+    el['collect-sub'].textContent = `Dimulai ${formatDateTime(session.createdAt)}`;
+    el['collect-start'].querySelector('span').textContent = 'Lanjutkan scan';
+    el['collect-reset'].hidden = false;
+  } else {
+    el['collect-count'].textContent = 'Belum ada sesi';
+    el['collect-sub'].textContent = 'Mulai scan, hasilnya tersimpan otomatis.';
+    el['collect-start'].querySelector('span').textContent = 'Mulai scan bebas';
+    el['collect-reset'].hidden = true;
+  }
 }
 
 function showScanView({ autoStart = false } = {}) {
+  if (!state) {
+    showHome();
+    return;
+  }
   el['import-view'].hidden = true;
   el['scan-view'].hidden = false;
   document.body.classList.add('in-scan');
+  el['camera-mode'].textContent = mode === 'collect' ? 'Scan Bebas' : 'SN Scanner';
   el['camera-date'].textContent = formatShortDate(state.createdAt);
   renderAll();
   completeAnnounced =
-    state.items.length > 0 && state.items.every((item) => item.status === 'found');
+    mode === 'match' &&
+    state.items.length > 0 &&
+    state.items.every((item) => item.status === 'found');
   requestAnimationFrame(() => {
     if (autoStart) activateCamera();
     else if (!scanner || !scanner.isRunning) showIdle();
@@ -208,7 +323,7 @@ function cameraErrorMessage(error) {
     case 'DevicesNotFoundError':
       return {
         title: 'Kamera tidak ditemukan',
-        body: 'Perangkat ini tidak punya kamera yang bisa dipakai browser. Daftar SN tetap bisa dicentang manual.',
+        body: 'Perangkat ini tidak punya kamera yang bisa dipakai browser. Daftar SN tetap bisa diubah manual.',
       };
     case 'NotReadableError':
     case 'TrackStartError':
@@ -219,7 +334,7 @@ function cameraErrorMessage(error) {
     case 'OverconstrainedError':
       return {
         title: 'Kamera belakang tidak tersedia',
-        body: 'Coba lagi untuk memakai kamera lain, atau centang SN secara manual.',
+        body: 'Coba lagi untuk memakai kamera lain, atau tambah SN secara manual.',
       };
     case 'NotSupportedError':
       return {
@@ -244,7 +359,7 @@ function cameraErrorMessage(error) {
     default:
       return {
         title: 'Kamera gagal dimulai',
-        body: 'Terjadi masalah saat membuka kamera. Muat ulang halaman atau centang SN secara manual.',
+        body: 'Terjadi masalah saat membuka kamera. Muat ulang halaman atau tambah SN secara manual.',
       };
   }
 }
@@ -334,6 +449,11 @@ async function toggleTorch() {
   }
 }
 
+function goHome() {
+  saveActive();
+  showHome();
+}
+
 /* ------------------------------------------------------------------- scan */
 
 function setHint(text, kind = 'idle') {
@@ -370,22 +490,30 @@ function displayCode(text) {
   return clean.length > 42 ? `${clean.slice(0, 39)}…` : clean;
 }
 
-function handleScan(raw) {
-  if (!state) return;
-  const text = String(raw || '').replace(/\s+/g, ' ').trim();
-  if (!text) return;
-  const key = normalizeSn(text);
-  if (!key) return;
-
-  const now = Date.now();
-  if (now - (lastScan.get(key) || 0) < SCAN_COOLDOWN_MS) return;
+function shouldIgnoreScan(key, now) {
+  if (now - (lastScan.get(key) || 0) < SCAN_COOLDOWN_MS) return true;
   lastScan.set(key, now);
   if (lastScan.size > 500) {
     for (const [oldKey, at] of lastScan) {
       if (now - at > 15000) lastScan.delete(oldKey);
     }
   }
+  return false;
+}
 
+function handleScan(raw) {
+  if (!state) return;
+  const text = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!text) return;
+  const key = normalizeSn(text);
+  if (!key) return;
+  const now = Date.now();
+  if (shouldIgnoreScan(key, now)) return;
+  if (mode === 'collect') handleCollectScan(text, now);
+  else handleMatchScan(text, key);
+}
+
+function handleMatchScan(text, key) {
   const item = itemIndex.get(key);
   if (!item) {
     setHint(`Bukan target: ${displayCode(text)}`, 'unknown');
@@ -402,7 +530,7 @@ function handleScan(raw) {
 
   item.status = 'found';
   item.scannedAt = new Date().toISOString();
-  saveState();
+  saveActive();
   flashFrame('hit');
   audio.success();
   vibrate(100);
@@ -411,8 +539,32 @@ function handleScan(raw) {
   checkComplete();
 }
 
+function handleCollectScan(text, now) {
+  const result = addCollectScan(state, text, new Date(now).toISOString());
+  if (result.status === 'invalid') return;
+
+  store.collect = result.session;
+  state = store.collect;
+  saveStore();
+  reindex();
+
+  const item = result.item;
+  if (result.status === 'dup') {
+    flashFrame('dup');
+    audio.duplicate();
+    vibrate(60);
+    setHint(`Sudah ada: ${item.sn} ×${item.qty}`, 'dup');
+  } else {
+    flashFrame('hit');
+    audio.success();
+    vibrate(100);
+    setHint(`Tersimpan: ${item.sn}`, 'hit');
+  }
+  renderAll({ flashKey: normalizeSn(item.sn) });
+}
+
 function checkComplete() {
-  if (!state) return;
+  if (!state || mode !== 'match') return;
   const all = state.items.length > 0 && state.items.every((item) => item.status === 'found');
   if (all && !completeAnnounced) {
     completeAnnounced = true;
@@ -423,7 +575,7 @@ function checkComplete() {
 }
 
 function toggleItem(index) {
-  if (!state) return;
+  if (!state || mode !== 'match') return;
   const item = state.items[index];
   if (!item) return;
   const wasFound = item.status === 'found';
@@ -435,7 +587,7 @@ function toggleItem(index) {
     item.status = 'found';
     item.scannedAt = new Date().toISOString();
   }
-  saveState();
+  saveActive();
   audio.tap();
   if (wasFound) {
     completeAnnounced = false;
@@ -451,10 +603,23 @@ function toggleItem(index) {
 
 function renderAll({ flashKey = null } = {}) {
   if (!state) return;
+  if (mode === 'collect') renderCollectAll({ flashKey });
+  else renderMatchAll({ flashKey });
+}
+
+function renderMatchAll({ flashKey = null } = {}) {
   const total = state.items.length;
   const found = state.items.filter((item) => item.status === 'found').length;
   const left = total - found;
   const percent = total ? Math.round((found / total) * 100) : 0;
+
+  el['progress-block'].classList.remove('is-collect');
+  el['progress-block'].classList.toggle('is-complete', total > 0 && found === total);
+  el['progress-label'].textContent = 'Ketemu';
+  el['complete-line'].hidden = !(total > 0 && found === total);
+  el['tabs'].hidden = false;
+  el['manual-btn'].hidden = true;
+  el['bottom-label'].textContent = 'Rekap';
 
   el['found-count'].textContent = String(found);
   el['total-count'].textContent = String(total);
@@ -462,17 +627,40 @@ function renderAll({ flashKey = null } = {}) {
   el['progress-fill'].style.width = `${percent}%`;
   el['progress-bar'].setAttribute('aria-valuenow', String(percent));
   el['progress-bar'].setAttribute('aria-valuetext', `${found} dari ${total} SN ketemu`);
-  el['complete-line'].hidden = !(total > 0 && found === total);
-  el['progress-block'].classList.toggle('is-complete', total > 0 && found === total);
   el['rekap-count'].textContent = `${found}/${total}`;
   el['tab-all'].textContent = String(total);
   el['tab-pending'].textContent = String(left);
   el['tab-found'].textContent = String(found);
   document.title = `${found}/${total} · SN Scanner`;
-  renderList({ flashKey });
+  renderMatchList({ flashKey });
 }
 
-function renderList({ flashKey = null } = {}) {
+function renderCollectAll({ flashKey = null } = {}) {
+  const summary = collectSummary(state.items);
+
+  el['progress-block'].classList.add('is-collect');
+  el['progress-block'].classList.remove('is-complete');
+  el['progress-label'].textContent = 'Tersimpan';
+  el['complete-line'].hidden = true;
+  el['tabs'].hidden = true;
+  el['manual-btn'].hidden = false;
+  el['bottom-label'].textContent = 'Ekspor';
+
+  el['found-count'].textContent = String(summary.unique);
+  el['total-count'].textContent = String(summary.totalQty);
+  el['progress-pct'].textContent = '';
+  el['progress-fill'].style.width = '100%';
+  el['progress-bar'].setAttribute('aria-valuenow', '100');
+  el['progress-bar'].setAttribute(
+    'aria-valuetext',
+    `${summary.unique} SN, ${summary.totalQty} scan`,
+  );
+  el['rekap-count'].textContent = `${summary.unique} SN`;
+  document.title = `${summary.unique} SN · Scan Bebas`;
+  renderCollectList({ flashKey });
+}
+
+function renderMatchList({ flashKey = null } = {}) {
   if (!state) return;
   const query = normalizeSn(search);
   const fragment = document.createDocumentFragment();
@@ -536,8 +724,80 @@ function renderList({ flashKey = null } = {}) {
   }
 }
 
-function setFilter(next) {
-  filter = next === 'pending' || next === 'found' ? next : 'all';
+function momentLabel(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  return sameDay ? formatTime(iso) : `${formatShortDate(iso)} ${formatTime(iso)}`;
+}
+
+function renderCollectList({ flashKey = null } = {}) {
+  if (!state) return;
+  const query = normalizeSn(search);
+  const fragment = document.createDocumentFragment();
+  let visible = 0;
+
+  state.items.forEach((item, index) => {
+    if (query && !normalizeSn(item.sn).includes(query)) return;
+    visible += 1;
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className =
+      'sn-row is-collect' +
+      (flashKey && normalizeSn(item.sn) === flashKey ? ' is-flash' : '');
+    row.dataset.idx = String(index);
+    row.setAttribute(
+      'aria-label',
+      `${item.sn}, jumlah ${item.qty}. Tekan untuk mengubah.`,
+    );
+
+    const qty = document.createElement('span');
+    qty.className = `sn-qty${item.qty > 1 ? ' is-many' : ''}`;
+    qty.setAttribute('aria-hidden', 'true');
+    qty.textContent = `×${item.qty}`;
+
+    const main = document.createElement('span');
+    main.className = 'sn-main';
+    const code = document.createElement('span');
+    code.className = 'sn-code';
+    code.textContent = item.sn;
+    const meta = document.createElement('span');
+    meta.className = 'sn-meta';
+    meta.textContent = `${momentLabel(item.lastAt)} · ${item.qty}× scan`;
+    main.append(code, meta);
+
+    const edit = document.createElement('span');
+    edit.className = 'sn-edit';
+    edit.setAttribute('aria-hidden', 'true');
+    edit.innerHTML = ICON_EDIT;
+
+    row.append(qty, main, edit);
+    fragment.appendChild(row);
+  });
+
+  el['sn-list'].replaceChildren(fragment);
+
+  if (!visible) {
+    const empty = document.createElement('div');
+    empty.className = 'list-empty';
+    empty.innerHTML = `${ICON_BARCODE}<p></p>`;
+    const paragraph = empty.querySelector('p');
+    if (query) {
+      paragraph.textContent = `Tidak ada SN yang cocok dengan “${search.trim()}”.`;
+    } else {
+      paragraph.textContent =
+        'Belum ada SN. Arahkan barcode ke kotak, atau tekan + untuk menambah manual.';
+    }
+    el['sn-list'].appendChild(empty);
+  }
+}
+
+function updateFilterTabs() {
   const buttons = el['tabs'].querySelectorAll('.tab');
   for (const button of buttons) {
     const active = button.dataset.filter === filter;
@@ -545,7 +805,12 @@ function setFilter(next) {
     button.setAttribute('aria-selected', active ? 'true' : 'false');
     button.tabIndex = active ? 0 : -1;
   }
-  if (state) renderList();
+}
+
+function setFilter(next) {
+  filter = next === 'pending' || next === 'found' ? next : 'all';
+  updateFilterTabs();
+  if (state && mode === 'match') renderMatchList();
 }
 
 /* ----------------------------------------------------------------- import */
@@ -574,16 +839,18 @@ function updatePreview() {
   }
 }
 
-function startSession(items, duplicates) {
-  state = {
+function startMatchSession(items, duplicates) {
+  store.match = {
     items: items.map((sn) => ({ sn, status: 'pending', scannedAt: null })),
     createdAt: new Date().toISOString(),
     updatedAt: null,
   };
+  applyMode('match', { persist: false });
+  state = store.match;
   reindex();
   lastScan.clear();
   completeAnnounced = false;
-  saveState();
+  saveStore();
   showScanView({ autoStart: true });
   if (duplicates > 0) {
     window.setTimeout(
@@ -591,6 +858,21 @@ function startSession(items, duplicates) {
       900,
     );
   }
+}
+
+function requestMatchStart(items, duplicates) {
+  const begin = () => startMatchSession(items, duplicates);
+  if (store.match && store.match.items.length) {
+    const found = store.match.items.filter((item) => item.status === 'found').length;
+    askConfirm({
+      title: 'Ganti sesi cocokkan?',
+      text: `Sesi sekarang (${found}/${store.match.items.length} SN) akan diganti dengan daftar baru. Data lama dihapus.`,
+      action: 'Ganti sesi',
+      onConfirm: begin,
+    });
+    return;
+  }
+  begin();
 }
 
 function handleImportSubmit(event) {
@@ -603,7 +885,7 @@ function handleImportSubmit(event) {
   }
   hideImportError();
   audio.unlock();
-  startSession(items, duplicates);
+  requestMatchStart(items, duplicates);
 }
 
 async function handleFile(file) {
@@ -630,10 +912,130 @@ async function handleFile(file) {
   }
 }
 
+/* ---------------------------------------------------------------- collect */
+
+function startCollectSession() {
+  const now = new Date().toISOString();
+  store.collect = { items: [], createdAt: now, updatedAt: now };
+  applyMode('collect', { persist: false });
+  state = store.collect;
+  reindex();
+  saveStore();
+  showScanView({ autoStart: true });
+}
+
+function requestCollectStart() {
+  if (store.collect && store.collect.items.length) {
+    applyMode('collect');
+    showScanView({ autoStart: true });
+    return;
+  }
+  audio.unlock();
+  startCollectSession();
+}
+
+function requestCollectNew() {
+  if (!store.collect) {
+    requestCollectStart();
+    return;
+  }
+  const summary = collectSummary(store.collect.items);
+  askConfirm({
+    title: 'Mulai sesi baru?',
+    text: `${summary.unique} SN (${summary.totalQty} scan) di sesi ini akan dihapus. Ekspor dulu kalau masih diperlukan.`,
+    action: 'Mulai baru',
+    onConfirm: () => {
+      store.collect = null;
+      state = null;
+      saveStore();
+      startCollectSession();
+    },
+  });
+}
+
+function openEdit(index = null) {
+  if (mode !== 'collect' || !state) return;
+  editIndex = Number.isInteger(index) && index >= 0 ? index : -1;
+  const item = editIndex >= 0 ? state.items[editIndex] : null;
+  el['edit-title'].textContent = item ? 'Ubah SN' : 'Tambah SN';
+  el['edit-sn'].value = item ? item.sn : '';
+  el['edit-meta'].textContent = item
+    ? `Scan pertama ${formatStamp(item.firstAt)}`
+    : 'Masukkan SN yang barcode-nya tidak terbaca.';
+  el['edit-delete'].hidden = !item;
+  el['edit-error'].hidden = true;
+  editQty = item ? item.qty : 1;
+  updateQtyUi();
+  openLayer(el['edit-modal']);
+  window.setTimeout(() => {
+    el['edit-sn'].focus({ preventScroll: true });
+    el['edit-sn'].select();
+  }, 60);
+}
+
+function updateQtyUi() {
+  el['edit-qty'].textContent = String(editQty);
+  el['qty-minus'].disabled = editQty <= 1;
+}
+
+function closeEdit() {
+  closeLayer(el['edit-modal']);
+  editIndex = -1;
+}
+
+function saveEdit(event) {
+  event.preventDefault();
+  if (!state || mode !== 'collect') return;
+  const sn = cleanSnText(el['edit-sn'].value);
+  if (!sn) {
+    el['edit-error'].textContent = 'SN tidak boleh kosong.';
+    el['edit-error'].hidden = false;
+    el['edit-sn'].focus();
+    return;
+  }
+  const key = normalizeSn(sn);
+  const duplicate = state.items.findIndex(
+    (item, index) => index !== editIndex && normalizeSn(item.sn) === key,
+  );
+  if (duplicate >= 0) {
+    el['edit-error'].textContent = `SN ${sn} sudah ada di daftar.`;
+    el['edit-error'].hidden = false;
+    return;
+  }
+
+  if (editIndex >= 0 && state.items[editIndex]) {
+    state.items[editIndex] = {
+      ...state.items[editIndex],
+      sn,
+      qty: editQty,
+    };
+  } else {
+    const now = new Date().toISOString();
+    state.items.unshift({ sn, qty: editQty, firstAt: now, lastAt: now });
+  }
+  const editing = editIndex >= 0;
+  saveActive();
+  reindex();
+  closeEdit();
+  renderAll();
+  toast(editing ? 'Perubahan disimpan' : 'SN ditambahkan', 'success');
+}
+
+function deleteEdited() {
+  if (!state || editIndex < 0 || !state.items[editIndex]) return;
+  const sn = state.items[editIndex].sn;
+  state.items.splice(editIndex, 1);
+  saveActive();
+  reindex();
+  closeEdit();
+  renderAll();
+  toast(`${sn} dihapus`, 'info');
+}
+
 /* ------------------------------------------------------------------ rekap */
 
 function buildReport() {
-  if (!state) return '';
+  if (!state || mode !== 'match') return '';
   const found = state.items.filter((item) => item.status === 'found');
   const left = state.items.filter((item) => item.status === 'pending');
   const lines = [
@@ -658,7 +1060,7 @@ function buildReport() {
 }
 
 function buildLeftReport() {
-  if (!state) return '';
+  if (!state || mode !== 'match') return '';
   return state.items
     .filter((item) => item.status === 'pending')
     .map((item) => item.sn)
@@ -746,7 +1148,7 @@ function buildRekapList(container, items, showTime) {
 }
 
 function renderRekap() {
-  if (!state) return;
+  if (!state || mode !== 'match') return;
   const found = state.items.filter((item) => item.status === 'found');
   const left = state.items.filter((item) => item.status === 'pending');
   el['sum-total'].textContent = String(state.items.length);
@@ -759,6 +1161,113 @@ function renderRekap() {
   buildRekapList(el['left-list'], left, false);
   buildRekapList(el['found-list'], found, true);
 }
+
+function openRekap() {
+  if (!state || mode !== 'match') return;
+  el['toast'].classList.remove('is-visible');
+  clearTimeout(toastTimer);
+  renderRekap();
+  openLayer(el['rekap-modal']);
+  el['rekap-close'].focus({ preventScroll: true });
+}
+
+function closeRekap() {
+  closeLayer(el['rekap-modal']);
+}
+
+/* ----------------------------------------------------------------- ekspor */
+
+function openExport() {
+  if (!state || mode !== 'collect') return;
+  const summary = collectSummary(state.items);
+  el['export-unique'].textContent = String(summary.unique);
+  el['export-total'].textContent = String(summary.totalQty);
+  el['export-sub'].textContent = `Mulai ${formatDateTime(state.createdAt)} · ${state.items.length} SN`;
+  const empty = state.items.length === 0;
+  el['export-xlsx'].disabled = empty;
+  el['export-csv'].disabled = empty;
+  el['export-tsv'].disabled = empty;
+  openLayer(el['export-modal']);
+  el['export-close'].focus({ preventScroll: true });
+}
+
+function closeExport() {
+  closeLayer(el['export-modal']);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function downloadXlsx({ sheetName, headers, rows, widths, filename }) {
+  const bytes = buildXlsx({ sheetName, headers, rows, widths });
+  downloadBlob(
+    new Blob([bytes], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }),
+    filename,
+  );
+}
+
+function exportCollect(kind) {
+  if (!state || mode !== 'collect' || !state.items.length) {
+    toast('Belum ada SN untuk diekspor', 'warn');
+    return;
+  }
+  const stamp = stampForFilename(new Date());
+  const rows = collectExportRows(state.items);
+  if (kind === 'xlsx') {
+    downloadXlsx({
+      sheetName: 'Scan Bebas',
+      headers: COLLECT_HEADERS,
+      rows,
+      widths: COLLECT_WIDTHS,
+      filename: `scan-bebas-${stamp}.xlsx`,
+    });
+    toast('Excel diunduh', 'success');
+  } else if (kind === 'csv') {
+    const csv = `\ufeff${toCsv(COLLECT_HEADERS, rows)}`;
+    downloadBlob(
+      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+      `scan-bebas-${stamp}.csv`,
+    );
+    toast('CSV diunduh', 'success');
+  }
+  closeExport();
+}
+
+function exportMatchXlsx() {
+  if (!state || mode !== 'match' || !state.items.length) {
+    toast('Belum ada SN untuk diekspor', 'warn');
+    return;
+  }
+  const stamp = stampForFilename(new Date());
+  downloadXlsx({
+    sheetName: 'Cocokkan SN',
+    headers: MATCH_HEADERS,
+    rows: matchExportRows(state.items),
+    widths: MATCH_WIDTHS,
+    filename: `cocokkan-sn-${stamp}.xlsx`,
+  });
+  toast('Excel diunduh', 'success');
+}
+
+function copyCollectTsv() {
+  if (!state || mode !== 'collect') return;
+  const rows = collectExportRows(state.items);
+  copyWithFeedback(toTsv(COLLECT_HEADERS, rows), 'TSV');
+}
+
+/* ------------------------------------------------------------------ modal */
 
 function openLayer(modal) {
   if (!document.querySelector('.modal:not([hidden])')) modalReturnFocus = document.activeElement;
@@ -777,54 +1286,53 @@ function closeLayer(modal) {
   }
 }
 
-function openRekap() {
-  if (!state) return;
-  el['toast'].classList.remove('is-visible');
-  clearTimeout(toastTimer);
-  renderRekap();
-  openLayer(el['rekap-modal']);
-  el['rekap-close'].focus({ preventScroll: true });
-}
-
-function closeRekap() {
-  closeLayer(el['rekap-modal']);
-}
-
-function openConfirm() {
-  if (!state) return;
-  el['confirm-text'].textContent = `${state.items.length} SN dan seluruh progres akan dihapus. Tindakan ini tidak bisa dibatalkan.`;
+function askConfirm({ title, text, action = 'Hapus sesi', onConfirm }) {
+  el['confirm-title'].textContent = title;
+  el['confirm-text'].textContent = text;
+  el['confirm-reset'].textContent = action;
+  confirmHandler = onConfirm;
   openLayer(el['confirm-modal']);
   el['confirm-cancel'].focus({ preventScroll: true });
 }
 
 function closeConfirm() {
   closeLayer(el['confirm-modal']);
+  confirmHandler = null;
   if (!el['rekap-modal'].hidden) el['reset-btn'].focus({ preventScroll: true });
+  else if (!el['export-modal'].hidden) el['export-reset'].focus({ preventScroll: true });
 }
 
-function resetSession() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
-  scanner?.stop();
-  state = null;
-  itemIndex.clear();
+function runConfirm() {
+  const handler = confirmHandler;
+  confirmHandler = null;
+  closeLayer(el['confirm-modal']);
+  if (handler) handler();
+}
+
+/* ------------------------------------------------------------------ reset */
+
+function clearSession(which) {
+  store[which] = null;
+  const other = which === 'match' ? 'collect' : 'match';
+  mode = store[other] ? other : which === 'match' ? 'match' : 'collect';
+  state = store[mode] || null;
+  store.lastMode = mode;
+  saveStore();
   lastScan.clear();
   completeAnnounced = false;
-  el['rekap-modal'].hidden = true;
   el['confirm-modal'].hidden = true;
+  el['rekap-modal'].hidden = true;
+  el['export-modal'].hidden = true;
+  el['edit-modal'].hidden = true;
   document.body.classList.remove('modal-open');
-  el['sn-input'].value = '';
-  el['file-note'].textContent = '';
-  el['file-input'].value = '';
-  el['search-input'].value = '';
-  search = '';
-  el['search-clear'].hidden = true;
-  hideImportError();
-  updatePreview();
-  showImportView();
+  if (which === 'match') {
+    el['sn-input'].value = '';
+    el['file-note'].textContent = '';
+    el['file-input'].value = '';
+    hideImportError();
+    updatePreview();
+  }
+  clearSearch();
   el['scan-frame'].classList.remove('is-hit', 'is-dup', 'is-hidden');
   el['paused-overlay'].hidden = true;
   el['camera-error'].hidden = true;
@@ -836,8 +1344,26 @@ function resetSession() {
   cameraAttempt += 1;
   cameraStarting = false;
   setHint('Arahkan barcode ke dalam kotak', 'idle');
-  requestAnimationFrame(() => el['sn-input'].focus({ preventScroll: true }));
-  toast('Sesi baru siap', 'info');
+  showHome();
+  requestAnimationFrame(() => {
+    if (mode === 'match') el['sn-input'].focus({ preventScroll: true });
+  });
+  toast('Sesi dihapus', 'info');
+}
+
+function requestReset() {
+  const which = mode;
+  const isCollect = which === 'collect';
+  const summary = isCollect && state ? collectSummary(state.items) : null;
+  const total = isCollect ? summary.unique : state ? state.items.length : 0;
+  askConfirm({
+    title: isCollect ? 'Hapus sesi scan bebas?' : 'Hapus sesi cocokkan?',
+    text: isCollect
+      ? `${total} SN dan seluruh riwayat scan akan dihapus. Ekspor dulu kalau masih diperlukan.`
+      : `${total} SN dan seluruh progres akan dihapus. Tindakan ini tidak bisa dibatalkan.`,
+    action: 'Hapus sesi',
+    onConfirm: () => clearSession(which),
+  });
 }
 
 /* ------------------------------------------------------------------ toast */
@@ -870,11 +1396,25 @@ function trapFocus(modal, event) {
   }
 }
 
+function activeModal() {
+  if (!el['confirm-modal'].hidden) return el['confirm-modal'];
+  if (!el['edit-modal'].hidden) return el['edit-modal'];
+  if (!el['export-modal'].hidden) return el['export-modal'];
+  if (!el['rekap-modal'].hidden) return el['rekap-modal'];
+  return null;
+}
+
 function handleGlobalKeydown(event) {
   if (event.key === 'Escape') {
     if (!el['confirm-modal'].hidden) {
       event.preventDefault();
       closeConfirm();
+    } else if (!el['edit-modal'].hidden) {
+      event.preventDefault();
+      closeEdit();
+    } else if (!el['export-modal'].hidden) {
+      event.preventDefault();
+      closeExport();
     } else if (!el['rekap-modal'].hidden) {
       event.preventDefault();
       closeRekap();
@@ -882,16 +1422,12 @@ function handleGlobalKeydown(event) {
     return;
   }
   if (event.key === 'Tab') {
-    const modal = !el['confirm-modal'].hidden
-      ? el['confirm-modal']
-      : !el['rekap-modal'].hidden
-        ? el['rekap-modal']
-        : null;
+    const modal = activeModal();
     if (modal) trapFocus(modal, event);
   }
 }
 
-/* ------------------------------------------------------------------ wiring */
+/* ----------------------------------------------------------------- wiring */
 
 function wireEvents() {
   el['import-form'].addEventListener('submit', handleImportSubmit);
@@ -908,16 +1444,37 @@ function wireEvents() {
     handleFile(file);
   });
 
+  el['mode-switch'].addEventListener('click', (event) => {
+    const tab = event.target.closest('.mode-tab');
+    if (tab && tab.dataset.mode !== mode) applyMode(tab.dataset.mode);
+  });
+  el['mode-switch'].addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    const tabs = Array.from(el['mode-switch'].querySelectorAll('.mode-tab'));
+    const current = tabs.indexOf(document.activeElement);
+    if (current < 0) return;
+    event.preventDefault();
+    const next =
+      event.key === 'ArrowRight'
+        ? tabs[(current + 1) % tabs.length]
+        : tabs[(current - 1 + tabs.length) % tabs.length];
+    next.focus();
+    applyMode(next.dataset.mode);
+  });
+
+  el['collect-start'].addEventListener('click', requestCollectStart);
+  el['collect-reset'].addEventListener('click', requestCollectNew);
+
   el['search-input'].addEventListener('input', () => {
     search = el['search-input'].value;
     el['search-clear'].hidden = !search;
-    renderList();
+    if (mode === 'collect') renderCollectList();
+    else renderMatchList();
   });
   el['search-clear'].addEventListener('click', () => {
-    search = '';
-    el['search-input'].value = '';
-    el['search-clear'].hidden = true;
-    renderList();
+    clearSearch();
+    if (mode === 'collect') renderCollectList();
+    else renderMatchList();
     el['search-input'].focus();
   });
 
@@ -941,31 +1498,62 @@ function wireEvents() {
 
   el['sn-list'].addEventListener('click', (event) => {
     const row = event.target.closest('.sn-row');
-    if (row) toggleItem(Number(row.dataset.idx));
+    if (!row) return;
+    const index = Number(row.dataset.idx);
+    if (mode === 'collect') openEdit(index);
+    else toggleItem(index);
   });
 
-  el['rekap-btn'].addEventListener('click', openRekap);
+  el['manual-btn'].addEventListener('click', () => openEdit(null));
+
+  el['rekap-btn'].addEventListener('click', () => {
+    if (mode === 'collect') openExport();
+    else openRekap();
+  });
   el['rekap-close'].addEventListener('click', closeRekap);
+  el['rekap-xlsx'].addEventListener('click', exportMatchXlsx);
   el['copy-report'].addEventListener('click', () => copyWithFeedback(buildReport(), 'Laporan'));
   el['copy-left'].addEventListener('click', () =>
     copyWithFeedback(buildLeftReport(), 'Daftar sisa'),
   );
-  el['reset-btn'].addEventListener('click', openConfirm);
-  el['confirm-cancel'].addEventListener('click', closeConfirm);
-  el['confirm-reset'].addEventListener('click', () => {
-    closeLayer(el['confirm-modal']);
-    closeLayer(el['rekap-modal']);
-    resetSession();
+  el['reset-btn'].addEventListener('click', requestReset);
+
+  el['export-close'].addEventListener('click', closeExport);
+  el['export-xlsx'].addEventListener('click', () => exportCollect('xlsx'));
+  el['export-csv'].addEventListener('click', () => exportCollect('csv'));
+  el['export-tsv'].addEventListener('click', copyCollectTsv);
+  el['export-reset'].addEventListener('click', requestReset);
+
+  el['edit-form'].addEventListener('submit', saveEdit);
+  el['edit-cancel'].addEventListener('click', closeEdit);
+  el['edit-delete'].addEventListener('click', deleteEdited);
+  el['qty-minus'].addEventListener('click', () => {
+    editQty = Math.max(1, editQty - 1);
+    updateQtyUi();
   });
+  el['qty-plus'].addEventListener('click', () => {
+    editQty = Math.min(9999, editQty + 1);
+    updateQtyUi();
+  });
+
+  el['confirm-cancel'].addEventListener('click', closeConfirm);
+  el['confirm-reset'].addEventListener('click', runConfirm);
 
   el['idle-start'].addEventListener('click', activateCamera);
   el['camera-retry'].addEventListener('click', activateCamera);
   el['pause-btn'].addEventListener('click', togglePause);
   el['paused-resume'].addEventListener('click', togglePause);
   el['torch-btn'].addEventListener('click', toggleTorch);
+  el['home-btn'].addEventListener('click', goHome);
 
   document.querySelectorAll('[data-close]').forEach((node) => {
     node.addEventListener('click', closeRekap);
+  });
+  document.querySelectorAll('[data-export-close]').forEach((node) => {
+    node.addEventListener('click', closeExport);
+  });
+  document.querySelectorAll('[data-edit-close]').forEach((node) => {
+    node.addEventListener('click', closeEdit);
   });
   document.querySelectorAll('[data-confirm-close]').forEach((node) => {
     node.addEventListener('click', closeConfirm);
@@ -996,25 +1584,44 @@ function init() {
     scanner = null;
   }
 
-  const saved = loadState();
-  if (saved) {
-    state = saved;
-    reindex();
-    showScanView({ autoStart: false });
-  } else {
-    showImportView();
+  const loaded = loadStore();
+  store = loaded.store;
+  const preferred = store.lastMode;
+  mode = store[preferred] ? preferred : store.match ? 'match' : store.collect ? 'collect' : 'match';
+  state = store[mode] || null;
+
+  if (loaded.migrated) {
+    if (saveStore()) {
+      try {
+        localStorage.removeItem(LEGACY_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
   }
+
+  if (state) showScanView({ autoStart: false });
+  else showHome();
 
   if (new URLSearchParams(window.location.search).has('debug')) {
     window.__snc = {
       scan: handleScan,
       toggle: toggleItem,
       getState: () => (state ? JSON.parse(JSON.stringify(state)) : null),
+      getStore: () => JSON.parse(JSON.stringify(store)),
+      mode: () => mode,
+      setMode: (next) => applyMode(next),
       report: buildReport,
       leftReport: buildLeftReport,
       openRekap,
-      reset: resetSession,
+      openExport,
+      openEdit,
+      exportXlsx: () => exportCollect('xlsx'),
+      exportCsv: () => exportCollect('csv'),
+      reset: clearSession,
+      requestReset,
       activateCamera,
+      summary: () => (state ? collectSummary(state.items) : null),
       scannerInfo: () => ({
         exists: Boolean(scanner),
         running: Boolean(scanner && scanner.isRunning),

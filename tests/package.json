@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "description": "Test harness for Warehouse SN Scanner",
   "scripts": {
-    "test": "node core.test.mjs && node decode-node.js && node roi-node.js",
+    "test": "node core.test.mjs && node data.test.mjs && node export.test.mjs && node decode-node.js && node roi-node.js",
     "test:e2e": "node e2e-import.mjs && node e2e-camera.mjs && node e2e-flow.mjs && node e2e-pause.mjs",
+    "test:collect": "node e2e-collect.mjs",
     "fixtures": "node make-fixtures.js",
     "perf": "THROTTLE=8 SECONDS=8 node perf-baseline.mjs"
   },

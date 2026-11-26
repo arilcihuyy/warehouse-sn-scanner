@@ -8,10 +8,17 @@ importScripts('zxing.min.js');
 const hints = new Map();
 hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
   ZXing.BarcodeFormat.CODE_128,
+  ZXing.BarcodeFormat.CODE_93,
   ZXing.BarcodeFormat.CODE_39,
+  ZXing.BarcodeFormat.ITF,
+  ZXing.BarcodeFormat.CODABAR,
   ZXing.BarcodeFormat.EAN_13,
+  ZXing.BarcodeFormat.EAN_8,
+  ZXing.BarcodeFormat.UPC_A,
+  ZXing.BarcodeFormat.UPC_E,
   ZXing.BarcodeFormat.QR_CODE,
   ZXing.BarcodeFormat.DATA_MATRIX,
+  ZXing.BarcodeFormat.AZTEC,
 ]);
 // No TRY_HARDER: the strip is close to the lens and already cropped. The
 // harder pass mostly burns CPU on low-end devices.

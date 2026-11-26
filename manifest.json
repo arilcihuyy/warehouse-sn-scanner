@@ -1,7 +1,7 @@
 {
   "name": "Warehouse SN Scanner",
   "short_name": "SN Scanner",
-  "description": "Cocokkan barcode perangkat dengan daftar Serial Number langsung dari browser HP.",
+  "description": "Cocokkan barcode perangkat dengan daftar Serial Number, atau kumpulkan SN bebas dan ekspor ke Excel langsung dari browser HP.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
