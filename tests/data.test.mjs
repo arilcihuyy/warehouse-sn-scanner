@@ -33,7 +33,7 @@ test('normalizeState migrates the v1 session into match', () => {
     items: [{ sn: 'zte001', status: 'found', scannedAt: '2026-11-26T07:00:00.000Z' }],
     createdAt: '2026-11-26T06:00:00.000Z',
   });
-  assert.equal(state.version, 2);
+  assert.equal(state.version, 3);
   assert.equal(state.lastMode, 'match');
   assert.equal(state.collect, null);
   assert.deepEqual(state.match.items, [
@@ -42,9 +42,9 @@ test('normalizeState migrates the v1 session into match', () => {
   assert.equal(state.match.createdAt, '2026-11-26T06:00:00.000Z');
 });
 
-test('normalizeState keeps both v2 sessions', () => {
+test('normalizeState keeps both v3 sessions', () => {
   const state = normalizeState({
-    version: 2,
+    version: 3,
     lastMode: 'collect',
     match: { items: [{ sn: 'A1', status: 'pending', scannedAt: null }], createdAt: T1 },
     collect: { items: [{ sn: 'B2', qty: 3, firstAt: T1, lastAt: T2 }], createdAt: T1 },
@@ -52,6 +52,26 @@ test('normalizeState keeps both v2 sessions', () => {
   assert.equal(state.lastMode, 'collect');
   assert.equal(state.match.items[0].sn, 'A1');
   assert.equal(state.collect.items[0].qty, 3);
+});
+
+test('normalizeState migrates v2 quantities to one per unique SN', () => {
+  const state = normalizeState({
+    version: 2,
+    lastMode: 'collect',
+    collect: {
+      items: [
+        { sn: 'ZTEGC9001', qty: 6, firstAt: T1, lastAt: T2 },
+        { sn: 'FHTT9002', qty: 2, firstAt: T1, lastAt: T1 },
+      ],
+      activeBrand: 'auto',
+      createdAt: T1,
+    },
+  });
+  assert.deepEqual(
+    state.collect.items.map((item) => item.qty),
+    [1, 1],
+  );
+  assert.equal(state.version, 3);
 });
 
 test('normalizeState drops empty sessions and repairs bad qty', () => {
@@ -70,7 +90,7 @@ test('normalizeState drops empty sessions and repairs bad qty', () => {
 
 test('normalizeState returns an empty state for junk', () => {
   assert.deepEqual(normalizeState(null), {
-    version: 2,
+    version: 3,
     lastMode: 'match',
     match: null,
     collect: null,
@@ -108,23 +128,26 @@ test('addCollectScan auto-detects a brand when none is passed', () => {
   assert.equal(result.item.brand, 'ZTE');
 });
 
-test('an explicit brand overrides auto-detection, including on a duplicate', () => {
+test('a duplicate scan is rejected and leaves the first item untouched', () => {
   const first = addCollectScan(null, 'ZTEGC9001', T1);
   assert.equal(first.item.brand, 'ZTE');
   const second = addCollectScan(first.session, 'ZTEGC9001', T2, 'Huawei');
   assert.equal(second.status, 'dup');
-  assert.equal(second.item.brand, 'Huawei');
-  assert.equal(second.item.qty, 2);
+  assert.equal(second.session, first.session);
+  assert.equal(second.item.brand, 'ZTE');
+  assert.equal(second.item.qty, 1);
+  assert.equal(second.item.lastAt, T1);
 });
 
-test('addCollectScan merges a normalized duplicate and bumps qty', () => {
+test('addCollectScan rejects a normalized duplicate without bumping qty', () => {
   const first = addCollectScan(null, 'SN 001', T1);
   const second = addCollectScan(first.session, 'sn001', T2);
   assert.equal(second.status, 'dup');
+  assert.equal(second.session, first.session);
   assert.equal(second.session.items.length, 1);
-  assert.equal(second.session.items[0].qty, 2);
+  assert.equal(second.session.items[0].qty, 1);
   assert.equal(second.session.items[0].firstAt, T1);
-  assert.equal(second.session.items[0].lastAt, T2);
+  assert.equal(second.session.items[0].lastAt, T1);
 });
 
 test('addCollectScan puts new scans first', () => {

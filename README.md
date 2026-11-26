@@ -12,7 +12,7 @@ Aplikasi web **mobile-first** dengan dua mode: **Cocokkan** barcode perangkat (m
 - **Decode di Web Worker** — ZXing tidak memblokir main thread, jadi preview kamera dan checklist tetap mulus di HP kelas menengah. Resolusi crop adaptif mengikuti kemampuan perangkat.
 - Format barcode: `CODE_128`, `CODE_93`, `CODE_39`, `ITF`, `CODABAR`, `EAN_13`, `EAN_8`, `UPC_A`, `UPC_E`, `QR_CODE`, `DATA_MATRIX`, `AZTEC`.
 - **Feedback tanpa pop-up**: frame hijau + beep + getar untuk scan baru, kuning + beep ganda untuk duplikat, teks kecil untuk bukan target.
-- **Scan bebas**: scan berulang menambah qty, baris bisa diubah/dihapus, ada input manual, pencarian, dan penghitung SN unik + total scan.
+- **Scan bebas**: satu SN = satu baris; scan ulang ditolak dengan peringatan. Baris bisa diubah/dihapus, ada input manual, pencarian, dan penghitung SN unik per merk.
 - **Merk otomatis + override**: prefix SN dikenali (`ZTE`, `HWTC`/`48575443`, `FHTT`, `RCM`) dan masuk ke merk yang sesuai; chip `Auto` / `ZTE` / `Huawei` / `FiberHome` / `RCM` / `Lainnya` bisa dipakai untuk memaksa merk saat prefix tidak jelas. Merk tiap baris juga bisa diubah di dialog edit.
 - **Ekspor spreadsheet**: `.xlsx` berisi sheet **Ringkasan** (jumlah per merk), **Semua** (dengan kolom Merk), dan **satu sheet per merk**; plus CSV (pemisah `;`) dan salin TSV. Mode Cocokkan juga bisa mengunduh Excel dari rekap.
 - **Checklist live** dengan progress bar, pencarian, filter `Semua` / `Sisa` / `Ketemu`, dan tap manual untuk koreksi.
@@ -32,7 +32,7 @@ warehouse-sn-scanner/
 ├── assets/
 │   ├── styles.css             # design system: token terang + mode scan gelap
 │   ├── app.js                 # state, render, scan, rekap, ekspor, audio
-│   ├── data.js                # state v2, migrasi, operasi daftar scan bebas
+│   ├── data.js                # state v3, migrasi, operasi daftar scan bebas
 │   ├── export.js              # CSV/TSV + nama file
 │   ├── xlsx.js                # penulis XLSX/ZIP tanpa dependency
 │   ├── scan-core.js           # parsing SN, ROI mapping, decoder ZXing
@@ -102,9 +102,9 @@ Pilih mode di layar awal: **Cocokkan** atau **Scan bebas**.
 ### Mode Scan bebas
 
 1. Pilih tab **Scan bebas** → **Mulai scan bebas**.
-2. Scan barcode apa pun. Setiap SN baru masuk daftar; scan ulang otomatis menambah **qty**.
+2. Scan barcode apa pun. Setiap SN baru masuk daftar; kalau SN sudah pernah discan, scan ditolak dan tidak menambah baris.
 3. Merk terdeteksi dari prefix SN. Kalau prefix tidak jelas (atau salah), tap chip merk di atas daftar sebelum scan — pilihan berlaku untuk scan berikutnya. Merk per baris juga bisa diubah lewat dialog edit.
-4. Ketuk baris untuk mengubah SN/merk/qty atau menghapus. Tombol **+** di samping pencarian untuk menambah SN manual.
+4. Ketuk baris untuk mengubah SN/merk/jumlah unit atau menghapus. Tombol **+** di samping pencarian untuk menambah SN manual.
 5. Tombol **Ekspor** → `.xlsx` berisi Ringkasan + Semua + sheet per merk; atau CSV/TSV.
 6. **Reset sesi** menghapus daftar scan bebas saja; sesi Cocokkan tetap tersimpan.
 
@@ -143,7 +143,7 @@ Kalau masih terasa berat: buka di Chrome (bukan browser dalam Telegram/Instagram
 
 - **Merk**: deteksi otomatis memakai prefix `ZTE`, `HWTC`/`HUAWEI`/`HW`/`48575443`, `FHTT`/`FIBERHOME`/`FH`, dan `RCM`. Selain itu masuk `Lainnya`. Override lewat chip atau dialog edit selalu menang.
 - **Data per browser/origin.** Ganti browser, HP, atau alamat deploy = sesi berbeda. Reset lewat menu Rekap (mode Cocokkan) atau Ekspor (mode Scan bebas).
-- **Kompatibel dengan sesi lama.** Data versi sebelumnya (`warehouse-sn-scanner/v1`) dimigrasikan otomatis ke format baru saat halaman dibuka.
+- **Kompatibel dengan sesi lama.** Data v1/v2 dimigrasikan otomatis. Qty lama yang terbentuk dari scan berulang dirapikan menjadi 1 (satu SN = satu unit).
 - **Kamera**: Chrome Android dan Safari iOS 15.4+. Browser dalam aplikasi (Telegram/Instagram) kadang memblokir kamera — buka di Chrome/Safari.
 - **Senter** hanya muncul jika browser + kamera mendukung Torch API. iOS Safari umumnya belum mendukung.
 - **Getar** tidak tersedia di iOS Safari; feedback suara + visual tetap jalan.

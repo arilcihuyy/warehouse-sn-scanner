@@ -5,7 +5,7 @@
 
 import { normalizeSn } from './scan-core.js';
 
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 const ZERO_WIDTH = /[\u200B-\u200D\uFEFF]/g;
 
 export const BRANDS = ['ZTE', 'Huawei', 'FiberHome', 'RCM', 'Lainnya'];
@@ -91,7 +91,7 @@ function normalizeMatchSession(raw) {
   };
 }
 
-function normalizeCollectSession(raw) {
+function normalizeCollectSession(raw, clampQty = false) {
   if (!isObject(raw) || !Array.isArray(raw.items)) return null;
   const createdAt = validIso(raw.createdAt) || nowIso();
   const activeBrand =
@@ -106,14 +106,16 @@ function normalizeCollectSession(raw) {
     const key = normalizeSn(sn);
     if (!key) continue;
     const brand = item.brand ? normalizeBrand(item.brand) : guessBrand(sn);
-    const qty = Number.isFinite(item.qty) && item.qty >= 1 ? Math.floor(item.qty) : 1;
+    const qty = clampQty
+      ? 1
+      : Number.isFinite(item.qty) && item.qty >= 1
+        ? Math.floor(item.qty)
+        : 1;
     const firstAt = validIso(item.firstAt) || createdAt;
     const lastAt = validIso(item.lastAt) || firstAt;
     const existing = byKey.get(key);
     if (existing) {
-      existing.qty += qty;
       if (existing.brand === 'Lainnya' && brand !== 'Lainnya') existing.brand = brand;
-      if (Date.parse(lastAt) > Date.parse(existing.lastAt)) existing.lastAt = lastAt;
       continue;
     }
     const next = { sn, brand, qty, firstAt, lastAt };
@@ -129,7 +131,7 @@ function normalizeCollectSession(raw) {
   };
 }
 
-/** Accepts a v1 session (items at the root) or a v2 snapshot. */
+/** Accepts a v1 session (items at the root) or a v2/v3 snapshot. */
 export function normalizeState(parsed) {
   if (!isObject(parsed)) return emptyState();
 
@@ -143,8 +145,9 @@ export function normalizeState(parsed) {
     };
   }
 
+  const legacyQty = parsed.version !== STORAGE_VERSION;
   const match = normalizeMatchSession(parsed.match);
-  const collect = normalizeCollectSession(parsed.collect);
+  const collect = normalizeCollectSession(parsed.collect, legacyQty);
   let lastMode = parsed.lastMode === 'collect' ? 'collect' : 'match';
   if (lastMode === 'collect' && !collect) lastMode = 'match';
   if (lastMode === 'match' && !match && collect) lastMode = 'collect';
@@ -154,7 +157,7 @@ export function normalizeState(parsed) {
 
 /**
  * Add a scanned code to a collect session.
- * Returns a new session; the previous one is never mutated.
+ * A code that already exists is rejected untouched (one SN = one row).
  */
 export function addCollectScan(session, raw, at = nowIso(), brand = null) {
   const sn = cleanScanText(raw);
@@ -166,26 +169,8 @@ export function addCollectScan(session, raw, at = nowIso(), brand = null) {
   const resolvedBrand = explicit ? normalizeBrand(brand) : guessBrand(sn);
   const items = session && Array.isArray(session.items) ? session.items.slice() : [];
   const index = items.findIndex((item) => normalizeSn(item.sn) === key);
-
   if (index >= 0) {
-    const next = {
-      ...items[index],
-      qty: (Number.isFinite(items[index].qty) ? items[index].qty : 1) + 1,
-      lastAt: timestamp,
-    };
-    if (explicit) next.brand = resolvedBrand;
-    items[index] = next;
-    return {
-      status: 'dup',
-      index,
-      item: next,
-      session: {
-        items,
-        activeBrand: session && session.activeBrand ? session.activeBrand : 'auto',
-        createdAt: session.createdAt || timestamp,
-        updatedAt: timestamp,
-      },
-    };
+    return { status: 'dup', index, item: items[index], session };
   }
 
   const item = { sn, brand: resolvedBrand, qty: 1, firstAt: timestamp, lastAt: timestamp };

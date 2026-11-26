@@ -67,22 +67,32 @@ await scan('SN-001', 300);
 await page.waitForTimeout(1600);
 await scan('sn-001', 300);
 await scan('SN-002');
-console.log(
-  'after scans',
-  await page.evaluate(() => ({
-    unique: document.getElementById('found-count').textContent,
-    total: document.getElementById('total-count').textContent,
-    rows: [...document.querySelectorAll('#sn-list .sn-row')].map((row) => ({
-      sn: row.querySelector('.sn-code').textContent,
-      qty: row.querySelector('.sn-qty').textContent,
-      meta: row.querySelector('.sn-meta').textContent,
-    })),
-    store: window.__snc.getStore(),
+await page.waitForTimeout(1600);
+await scan('SN-002', 300);
+const afterScans = await page.evaluate(() => ({
+  unique: document.getElementById('found-count').textContent,
+  total: document.getElementById('total-count').textContent,
+  hint: document.getElementById('scan-hint').textContent,
+  rows: [...document.querySelectorAll('#sn-list .sn-row')].map((row) => ({
+    sn: row.querySelector('.sn-code').textContent,
+    qty: row.querySelector('.sn-qty').textContent,
+    meta: row.querySelector('.sn-meta').textContent,
   })),
-);
+  store: window.__snc.getStore(),
+}));
+console.log('after scans', afterScans);
+if (afterScans.unique !== '2' || afterScans.total !== '2') {
+  errors.push(`duplicate scan changed counts: ${afterScans.unique}/${afterScans.total}`);
+}
+if (afterScans.rows.some((row) => row.qty !== '×1')) {
+  errors.push('duplicate scan changed a row quantity');
+}
+if (!afterScans.hint.startsWith('Sudah pernah discan')) {
+  errors.push(`duplicate hint missing: ${afterScans.hint}`);
+}
 await page.screenshot({ path: fileURLToPath(new URL('./e2e-collect.png', import.meta.url)) });
 
-// Edit SN-001: qty 2 -> 3, rename.
+// Edit SN-001: qty 1 -> 2, rename.
 await page.locator('#sn-list .sn-row', { hasText: 'SN-001' }).click();
 await page.waitForTimeout(250);
 console.log(

@@ -9,10 +9,11 @@
 
 ## Update 26 Nov 2026 — Scan Bebas + ekspor spreadsheet
 
-- Mode kedua **Scan Bebas**: kumpulkan SN apa pun, qty otomatis bertambah untuk duplikat, edit/hapus, input manual.
+- Mode kedua **Scan Bebas**: kumpulkan SN apa pun; scan ulang ditolak (satu SN = satu baris), edit/hapus, input manual.
 - **Merk otomatis + override**: prefix `ZTE`, `HWTC`/`48575443`, `FHTT`, `RCM` dikenali; chip merk dan dropdown edit bisa memaksa merk. Excel dikelompokkan per merk.
 - Ekspor `.xlsx` asli: sheet **Ringkasan**, **Semua** (kolom Merk), dan satu sheet per merk. CSV (`;` + BOM) dan TSV juga menyertakan kolom Merk. Rekap mode Cocokkan tetap bisa unduh Excel.
-- State v2 menyimpan sesi `match` + `collect` terpisah di `warehouse-sn-scanner/v2`; data v1 dimigrasikan otomatis.
+- State v3 menyimpan sesi `match` + `collect` terpisah di `warehouse-sn-scanner/v2`; data v1/v2 dimigrasikan otomatis, qty lama dirapikan jadi 1.
+- **Duplikat ditolak**: scan SN yang sudah ada tidak menambah baris/qty; hanya feedback kuning + beep. State v3 membersihkan qty lama >1 dari perilaku lama.
 - File baru: `assets/data.js`, `assets/export.js`, `assets/xlsx.js` (multi-sheet).
 - Test baru: `tests/data.test.mjs`, `tests/export.test.mjs`, `tests/e2e-collect.mjs`, `tests/e2e-brands.mjs`.
 - Format barcode ditambah: CODE_93, ITF, CODABAR, EAN_8, UPC_A, UPC_E, AZTEC.
@@ -26,7 +27,7 @@
 - Efek blur di atas live camera dan animasi scan-line dihapus untuk menjaga performa.
 - Desktop: home dua kolom; scan dua kolom (kamera kiri, daftar kanan).
 - Semua ID, fitur, business logic, state, merk, dan ekspor dipertahankan. Satu-satunya tambahan JS: `#sheet-sub` text + theme-color dinamis.
-- Verifikasi: 38 unit test, E2E lama + collect + brands lulus, tidak ada console error; preview README diperbarui. Perf throttle 8×: raf p95 ~36 ms, worker p95 ~2,7 ms.
+- Verifikasi: 39 unit test, E2E lama + collect + brands lulus, tidak ada console error; preview README diperbarui. Perf throttle 8×: raf p95 ~36 ms, worker p95 ~2,7 ms.
 
 ## Status deploy — SELESAI (25 Nov 2026)
 

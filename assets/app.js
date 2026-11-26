@@ -174,7 +174,11 @@ function cacheElements() {
 function loadStore() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { store: normalizeState(JSON.parse(raw)), migrated: false };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeState(parsed);
+      return { store: normalized, migrated: parsed.version !== normalized.version };
+    }
     const legacy = localStorage.getItem(LEGACY_KEY);
     if (legacy) return { store: normalizeState(JSON.parse(legacy)), migrated: true };
   } catch {
@@ -292,10 +296,11 @@ function renderModeHome() {
   const session = store.collect;
   if (session) {
     const summary = collectSummary(session.items);
-    const brands = collectBrandSummary(session.items)
+    const brandGroups = collectBrandSummary(session.items);
+    const brands = brandGroups
       .map((group) => `${group.brand} ${group.unique}`)
       .join(' · ');
-    el['collect-count'].textContent = `${summary.unique} SN · ${summary.totalQty} scan`;
+    el['collect-count'].textContent = `${summary.unique} SN · ${brandGroups.length} merk`;
     el['collect-sub'].textContent = `Dimulai ${formatDateTime(session.createdAt)}${
       brands ? ` · ${brands}` : ''
     }`;
@@ -589,23 +594,24 @@ function handleCollectScan(text, now) {
   const result = addCollectScan(state, text, new Date(now).toISOString(), brandForNextScan());
   if (result.status === 'invalid') return;
 
+  if (result.status === 'dup') {
+    flashFrame('dup');
+    audio.duplicate();
+    vibrate(60);
+    setHint(`Sudah pernah discan: ${result.item.sn}`, 'dup');
+    return;
+  }
+
   store.collect = result.session;
   state = store.collect;
   saveStore();
   reindex();
 
   const item = result.item;
-  if (result.status === 'dup') {
-    flashFrame('dup');
-    audio.duplicate();
-    vibrate(60);
-    setHint(`Sudah ada: ${item.sn} ×${item.qty}`, 'dup');
-  } else {
-    flashFrame('hit');
-    audio.success();
-    vibrate(100);
-    setHint(`Tersimpan: ${item.brand} · ${item.sn}`, 'hit');
-  }
+  flashFrame('hit');
+  audio.success();
+  vibrate(100);
+  setHint(`Tersimpan: ${item.brand} · ${item.sn}`, 'hit');
   renderAll({ flashKey: normalizeSn(item.sn) });
 }
 
@@ -707,7 +713,7 @@ function renderCollectAll({ flashKey = null } = {}) {
   );
   el['rekap-count'].textContent = `${summary.unique} SN`;
   el['sheet-sub'].textContent = summary.unique
-    ? `${collectBrandSummary(state.items).length} merk · ${summary.totalQty} scan`
+    ? `${collectBrandSummary(state.items).length} merk`
     : 'Belum ada scan';
   document.title = `${summary.unique} SN · Scan Bebas`;
   renderCollectList({ flashKey });
@@ -821,7 +827,8 @@ function renderCollectList({ flashKey = null } = {}) {
     code.textContent = item.sn;
     const meta = document.createElement('span');
     meta.className = 'sn-meta';
-    meta.textContent = `${item.brand || 'Lainnya'} · ${momentLabel(item.lastAt)} · ${item.qty}× scan`;
+    const unit = item.qty > 1 ? ` · ${item.qty} unit` : '';
+    meta.textContent = `${item.brand || 'Lainnya'}${unit} · ${momentLabel(item.lastAt)}`;
     main.append(code, meta);
 
     const edit = document.createElement('span');
@@ -1298,7 +1305,7 @@ function exportCollect(kind) {
     const sheets = [
       {
         name: 'Ringkasan',
-        headers: ['Merk', 'SN unik', 'Total scan'],
+        headers: ['Merk', 'SN unik', 'Jumlah unit'],
         rows: [
           ...summary.map((group) => [group.brand, group.unique, group.totalQty]),
           ['TOTAL', totalUnique, totalQty],
