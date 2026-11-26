@@ -729,7 +729,7 @@ body.in-scan .btn-danger {
 
 .camera-stage {
   position: relative;
-  flex: 0 0 clamp(300px, 48dvh, 480px);
+  flex: 0 0 42dvh;
   min-height: 0;
   overflow: hidden;
   background: #000;
@@ -759,24 +759,22 @@ body.in-scan .btn-danger {
   --frame-color: var(--accent);
   position: absolute;
   z-index: 2;
-  left: 50%;
-  top: 50%;
-  width: min(78%, 320px);
-  height: 150px;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 16px;
+  left: 8%;
+  top: 37%;
+  width: 84%;
+  height: 26%;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
   background:
-    linear-gradient(var(--frame-color), var(--frame-color)) left top / 22px 2px no-repeat,
-    linear-gradient(var(--frame-color), var(--frame-color)) left top / 2px 22px no-repeat,
-    linear-gradient(var(--frame-color), var(--frame-color)) right top / 22px 2px no-repeat,
-    linear-gradient(var(--frame-color), var(--frame-color)) right top / 2px 22px no-repeat,
-    linear-gradient(var(--frame-color), var(--frame-color)) left bottom / 22px 2px no-repeat,
-    linear-gradient(var(--frame-color), var(--frame-color)) left bottom / 2px 22px no-repeat,
-    linear-gradient(var(--frame-color), var(--frame-color)) right bottom / 22px 2px no-repeat,
-    linear-gradient(var(--frame-color), var(--frame-color)) right bottom / 2px 22px no-repeat;
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.28);
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
+    linear-gradient(var(--frame-color), var(--frame-color)) left top / 20px 2px no-repeat,
+    linear-gradient(var(--frame-color), var(--frame-color)) left top / 2px 20px no-repeat,
+    linear-gradient(var(--frame-color), var(--frame-color)) right top / 20px 2px no-repeat,
+    linear-gradient(var(--frame-color), var(--frame-color)) right top / 2px 20px no-repeat,
+    linear-gradient(var(--frame-color), var(--frame-color)) left bottom / 20px 2px no-repeat,
+    linear-gradient(var(--frame-color), var(--frame-color)) left bottom / 2px 20px no-repeat,
+    linear-gradient(var(--frame-color), var(--frame-color)) right bottom / 20px 2px no-repeat,
+    linear-gradient(var(--frame-color), var(--frame-color)) right bottom / 2px 20px no-repeat;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.42);
   transition:
     border-color 0.15s ease,
     opacity 0.2s ease,
@@ -806,23 +804,12 @@ body.in-scan .btn-danger {
 .scan-line {
   position: absolute;
   top: 50%;
-  right: 14px;
-  left: 14px;
+  right: 12px;
+  left: 12px;
   height: 1.5px;
   border-radius: 2px;
   background: var(--frame-color);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--frame-color) 65%, transparent);
-  animation: scanline 2.8s ease-in-out infinite;
-}
-
-@keyframes scanline {
-  0%,
-  100% {
-    top: 20%;
-  }
-  50% {
-    top: 80%;
-  }
+  box-shadow: 0 0 12px color-mix(in srgb, var(--frame-color) 60%, transparent);
 }
 
 .camera-top {
@@ -853,10 +840,8 @@ body.in-scan .btn-danger {
   padding: 8px 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 14px;
-  background: rgba(8, 9, 10, 0.5);
+  background: rgba(8, 9, 10, 0.68);
   color: #f6f4ef;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 #camera-mode {
@@ -892,10 +877,8 @@ body.in-scan .btn-danger {
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 50%;
-  background: rgba(8, 9, 10, 0.5);
+  background: rgba(8, 9, 10, 0.68);
   color: #f6f4ef;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   transition:
     background 0.16s ease,
     border-color 0.16s ease,
@@ -964,7 +947,7 @@ body.in-scan .btn-danger {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 999px;
-  background: rgba(8, 9, 10, 0.62);
+  background: rgba(8, 9, 10, 0.72);
   color: rgba(246, 244, 239, 0.88);
   font-size: 11px;
   font-weight: 500;
@@ -972,8 +955,6 @@ body.in-scan .btn-danger {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
 }
 
 .scan-hint[data-kind="hit"] {
@@ -2400,8 +2381,11 @@ body.in-scan .modal-backdrop {
   }
 
   .scan-frame {
+    left: 50%;
+    top: 50%;
     width: min(64%, 430px);
-    height: 190px;
+    height: 180px;
+    transform: translate(-50%, -50%);
   }
 
   .list-panel {
@@ -2461,8 +2445,11 @@ body.in-scan .modal-backdrop {
   }
 
   .scan-frame {
+    left: 50%;
+    top: 50%;
     width: min(70%, 360px);
     height: 120px;
+    transform: translate(-50%, -50%);
   }
 
   .list-panel {

@@ -22,10 +22,11 @@
 
 - Shell terang warm-paper untuk home/modal, mode scan gelap imersif; aksen vermilion.
 - Font vendored: Instrument Sans + JetBrains Mono (`assets/fonts/`, OFL). Ikon PWA diperbarui.
-- Mobile-first: hero ringkas, kartu sesi, bottom sheet scan, safe-area, target sentuh besar, layout khusus layar pendek (375×667 tetap memuat CTA).
+- Mobile-first: hero ringkas, kartu sesi, bottom sheet scan, safe-area, target sentuh besar, layout khusus layar pendek (375×667 tetap memuat CTA). Kamera tetap **42dvh** dengan strip scan tipis **84% × 26%** seperti desain awal.
+- Efek blur di atas live camera dan animasi scan-line dihapus untuk menjaga performa.
 - Desktop: home dua kolom; scan dua kolom (kamera kiri, daftar kanan).
 - Semua ID, fitur, business logic, state, merk, dan ekspor dipertahankan. Satu-satunya tambahan JS: `#sheet-sub` text + theme-color dinamis.
-- Verifikasi: 38 unit test, E2E lama + collect + brands lulus, tidak ada console error; preview README diperbarui. Perf throttle 8×: raf p95 ~43 ms, worker p95 ~4,6 ms.
+- Verifikasi: 38 unit test, E2E lama + collect + brands lulus, tidak ada console error; preview README diperbarui. Perf throttle 8×: raf p95 ~36 ms, worker p95 ~2,7 ms.
 
 ## Status deploy — SELESAI (25 Nov 2026)
 
