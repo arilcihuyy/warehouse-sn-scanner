@@ -103,9 +103,9 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .scan-btn:active{background:rgba(23,23,23,.08)}
 .scan-btn.is-on{background:var(--ink);color:#fff}
 
-.camera-stage{position:relative;flex:1;min-height:0;margin:2px 20px 0;border-radius:26px;overflow:hidden;background:rgba(23,23,23,.06);border:1px solid rgba(23,23,23,.08);box-shadow:var(--shadow)}
+.camera-stage{position:relative;flex:none;height:clamp(210px,32dvh,250px);min-height:0;margin:auto 20px;border-radius:26px;overflow:hidden;background:rgba(23,23,23,.06);border:1px solid rgba(23,23,23,.08);box-shadow:var(--shadow)}
 .camera-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.scan-frame{position:absolute;left:9%;width:82%;height:30%;top:33%;border:1.5px solid rgba(255,255,255,.88);border-radius:18px;box-shadow:0 0 0 9999px rgba(23,23,23,.18);transition:border-color .15s ease}
+.scan-frame{position:absolute;left:50%;top:46%;width:min(64%,200px);aspect-ratio:2/1;height:auto;transform:translate(-50%,-50%);border:1.5px solid rgba(255,255,255,.88);border-radius:14px;box-shadow:0 0 0 9999px rgba(23,23,23,.22);transition:border-color .15s ease}
 .scan-frame .scan-line{position:absolute;left:8%;right:8%;top:18%;height:1.5px;background:rgba(255,255,255,.85);border-radius:2px;animation:scan-sweep 2.8s ease-in-out infinite}
 .scan-frame.is-hit{border-color:#8FE3C8}
 .scan-frame.is-hit .scan-line{background:#8FE3C8}
@@ -113,13 +113,13 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .scan-frame.is-dup .scan-line{background:#F3CB87}
 @keyframes scan-sweep{0%,100%{top:18%;opacity:.45}50%{top:82%;opacity:.88}}
 
-.camera-hint{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);max-width:calc(100% - 28px);padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.88);color:var(--ink);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(23,23,23,.1)}
-.camera-overlay{position:absolute;inset:0;display:grid;place-items:center;overflow-y:auto;background:rgba(245,233,200,.52);backdrop-filter:blur(8px);padding:16px}
+.camera-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);max-width:calc(100% - 28px);padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.88);color:var(--ink);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(23,23,23,.1)}
+.camera-overlay{position:absolute;inset:0;display:grid;place-items:center;overflow-y:auto;background:rgba(245,233,200,.52);backdrop-filter:blur(8px);padding:12px}
 #camera-idle{background:transparent;backdrop-filter:none;padding:8px 0}
-.overlay-card,.idle-card{width:100%;max-width:360px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:26px;padding:20px;text-align:center;color:var(--ink);box-shadow:var(--shadow)}
+.overlay-card,.idle-card{width:100%;max-width:360px;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:26px;padding:16px 18px;text-align:center;color:var(--ink);box-shadow:var(--shadow)}
 .overlay-card strong,.idle-card p{display:block}
-.overlay-card strong{font-size:17px;margin-bottom:8px}
-.overlay-card p{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px}
+.overlay-card strong{font-size:16px;margin-bottom:6px}
+.overlay-card p{font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:14px}
 .idle-card .segmented{background:#F3F3F3;margin-bottom:6px}
 .idle-card .mode-copy{font-size:12px;color:var(--muted);line-height:1.5;margin:12px 0 10px}
 .idle-card .mode-meta{display:flex;justify-content:center;gap:10px;font-size:11px;color:var(--muted);margin-bottom:12px}
@@ -136,7 +136,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .scan-bottom-row .session-count{flex:1;font-size:13px;font-weight:650;color:var(--ink)}
 
 /* Before camera starts, avoid showing a card frame behind the idle mode card. */
-.scan-view.is-idle .camera-stage{background:transparent;border-color:transparent;box-shadow:none}
+.scan-view.is-idle .camera-stage{flex:1;height:auto;margin:2px 20px 0;background:transparent;border-color:transparent;box-shadow:none}
 .scan-view.is-idle .camera-stage video,.scan-view.is-idle .scan-frame,.scan-view.is-idle .camera-hint{display:none}
 
 /* Inventory */
@@ -250,7 +250,6 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .greeting{padding:12px 0}
   .fan-card{min-height:88px}
   .dock-fab{margin-top:10px}
-  .camera-stage .scan-frame{height:32%}
 }
 @media (prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
