@@ -5,10 +5,9 @@ tests/package-lock.json
 
 # Generated test media
 tests/fixtures/scan.y4m
-tests/e2e-*.png
+tests/*.png
 tests/e2e-*.csv
 tests/e2e-*.xlsx
-tests/visual-*.png
 tests/landscape-*.png
 tests/shot-*.png
 

@@ -18,6 +18,15 @@
 - Format barcode ditambah: CODE_93, ITF, CODABAR, EAN_8, UPC_A, UPC_E, AZTEC.
 - Verifikasi: 38 unit test lulus, E2E lama + collect + brands lulus, XLSX multi-sheet dibuka `openpyxl`, perf throttle 8× raf p95 39 ms.
 
+## Update 26 Nov 2026 — Redesign UI (Paper & Signal)
+
+- Shell terang warm-paper untuk home/modal, mode scan gelap imersif; aksen vermilion.
+- Font vendored: Instrument Sans + JetBrains Mono (`assets/fonts/`, OFL). Ikon PWA diperbarui.
+- Mobile-first: hero ringkas, kartu sesi, bottom sheet scan, safe-area, target sentuh besar, layout khusus layar pendek (375×667 tetap memuat CTA).
+- Desktop: home dua kolom; scan dua kolom (kamera kiri, daftar kanan).
+- Semua ID, fitur, business logic, state, merk, dan ekspor dipertahankan. Satu-satunya tambahan JS: `#sheet-sub` text + theme-color dinamis.
+- Verifikasi: 38 unit test, E2E lama + collect + brands lulus, tidak ada console error; preview README diperbarui. Perf throttle 8×: raf p95 ~43 ms, worker p95 ~4,6 ms.
+
 ## Status deploy — SELESAI (25 Nov 2026)
 
 Live di **https://arilcihuyy.github.io/warehouse-sn-scanner/** (HTTP 200, `<title>Warehouse SN Scanner</title>`, assets `scan-worker.js` ikut ter-deploy).

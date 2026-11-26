@@ -109,6 +109,7 @@ function cacheElements() {
     'progress-bar',
     'progress-fill',
     'complete-line',
+    'sheet-sub',
     'search-input',
     'search-clear',
     'manual-btn',
@@ -228,6 +229,11 @@ function cleanSnText(value) {
     .replace(/\s+/g, ' ');
 }
 
+function setThemeColor(color) {
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', color);
+}
+
 function activeBrandValue() {
   const value = state && state.activeBrand ? state.activeBrand : 'auto';
   return value === 'auto' ? 'auto' : normalizeBrand(value);
@@ -261,6 +267,7 @@ function showHome() {
   el['import-view'].hidden = false;
   document.body.classList.remove('in-scan');
   document.title = 'Warehouse SN Scanner';
+  setThemeColor('#F4F1EA');
   el['paused-overlay'].hidden = true;
   el['camera-error'].hidden = true;
   el['camera-idle'].hidden = true;
@@ -310,6 +317,7 @@ function showScanView({ autoStart = false } = {}) {
   el['import-view'].hidden = true;
   el['scan-view'].hidden = false;
   document.body.classList.add('in-scan');
+  setThemeColor('#08090A');
   el['camera-mode'].textContent = mode === 'collect' ? 'Scan Bebas' : 'SN Scanner';
   el['camera-date'].textContent = formatShortDate(state.createdAt);
   renderAll();
@@ -670,6 +678,7 @@ function renderMatchAll({ flashKey = null } = {}) {
   el['tab-all'].textContent = String(total);
   el['tab-pending'].textContent = String(left);
   el['tab-found'].textContent = String(found);
+  el['sheet-sub'].textContent = total ? `${left} sisa · ${total} SN` : 'Belum ada SN';
   document.title = `${found}/${total} · SN Scanner`;
   renderMatchList({ flashKey });
 }
@@ -697,6 +706,9 @@ function renderCollectAll({ flashKey = null } = {}) {
     `${summary.unique} SN, ${summary.totalQty} scan`,
   );
   el['rekap-count'].textContent = `${summary.unique} SN`;
+  el['sheet-sub'].textContent = summary.unique
+    ? `${collectBrandSummary(state.items).length} merk · ${summary.totalQty} scan`
+    : 'Belum ada scan';
   document.title = `${summary.unique} SN · Scan Bebas`;
   renderCollectList({ flashKey });
 }

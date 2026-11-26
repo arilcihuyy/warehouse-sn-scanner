@@ -19,8 +19,9 @@ Aplikasi web **mobile-first** dengan dua mode: **Cocokkan** barcode perangkat (m
 - **Rekap & ekspor**: salin sisa SN atau laporan lengkap siap tempel ke WhatsApp, unduh Excel, lalu reset sesi dengan konfirmasi.
 - Tombol **home** di layar kamera untuk pindah mode tanpa menghapus sesi.
 - **Senter** (jika perangkat mendukung), **pause/resume**, **wake lock**, dan penanganan error kamera yang ramah.
-- Dark mode kontras tinggi, target sentuh 44px+, aman untuk safe-area iOS/Android.
-- Aset scanner (ZXing) disimpan lokal — tidak bergantung CDN saat dipakai.
+- **Desain dua suasana**: shell terang “paper” untuk menyiapkan sesi, dan mode scan gelap imersif agar barcode tetap fokus. Tipografi Instrument Sans + JetBrains Mono (vendored, OFL).
+- **Mobile-first**: target sentuh 44px+, safe-area iOS/Android, dan layout desktop dua kolom (kamera + daftar) yang tetap nyaman.
+- Aset scanner (ZXing) dan font disimpan lokal — tidak bergantung CDN saat dipakai.
 
 ## Struktur file
 
@@ -29,7 +30,7 @@ warehouse-sn-scanner/
 ├── index.html                 # markup: home (2 mode) + layar scan
 ├── manifest.json              # PWA manifest (add to home screen)
 ├── assets/
-│   ├── styles.css             # seluruh desain dark mode
+│   ├── styles.css             # design system: token terang + mode scan gelap
 │   ├── app.js                 # state, render, scan, rekap, ekspor, audio
 │   ├── data.js                # state v2, migrasi, operasi daftar scan bebas
 │   ├── export.js              # CSV/TSV + nama file
@@ -39,6 +40,7 @@ warehouse-sn-scanner/
 │   ├── scan-worker.js         # decode ZXing di Web Worker
 │   ├── audio.js               # beep Web Audio API (tanpa file audio)
 │   ├── zxing.min.js           # @zxing/library 0.21.3 (vendored)
+│   ├── fonts/                 # Instrument Sans + JetBrains Mono (OFL)
 │   ├── icon.svg
 │   ├── icon-192.png
 │   └── icon-512.png
@@ -151,8 +153,9 @@ Kalau masih terasa berat: buka di Chrome (bukan browser dalam Telegram/Instagram
 
 ## Kustomisasi
 
-- **Warna**: CSS variables di `assets/styles.css` (`--accent`, `--surface`, `--danger`, dll).
-- **Area scan**: ubah `.scan-frame` (`left`, `top`, `width`, `height`). `scanner.js` membaca rect yang sama, jadi tidak ada angka duplikat di JS.
+- **Warna & tema**: token di `assets/styles.css`. `:root` mengatur shell terang, `body.in-scan` mengatur mode scan gelap (`--accent`, `--surface`, `--text`, `--line`, dll).
+- **Font**: `assets/fonts/` (Instrument Sans + JetBrains Mono). Ganti `@font-face` dan `--font`/`--mono` untuk rebrand.
+- **Area scan**: ubah `.scan-frame` (`width`, `height`, posisi). `scanner.js` membaca rect yang sama, jadi tidak ada angka duplikat di JS.
 - **Format barcode**: daftar format di `assets/scan-worker.js`; fallback `createDecoder()` di `assets/scan-core.js`.
 - **Cooldown scan**: `SCAN_COOLDOWN_MS` di `assets/app.js` (default 1500 ms).
 - **Interval decode**: `DECODE_INTERVAL_MS` di `assets/scanner.js` (default 120 ms).
