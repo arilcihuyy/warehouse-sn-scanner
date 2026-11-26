@@ -707,6 +707,14 @@ body.in-scan .btn-danger {
   line-height: 1.4;
 }
 
+.app-version {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
 .status-dot {
   width: 6px;
   height: 6px;
