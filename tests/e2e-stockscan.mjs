@@ -68,6 +68,16 @@ await page.waitForFunction(() => {
 check('camera preview is running', true);
 check('no camera error overlay', await page.locator('#camera-error').isHidden());
 
+const frameMetrics = await page.evaluate(() => {
+  const stage = document.getElementById('camera-stage').getBoundingClientRect();
+  const frame = document.getElementById('scan-frame').getBoundingClientRect();
+  return { stageWidth: stage.width, stageHeight: stage.height, frameWidth: frame.width, frameHeight: frame.height };
+});
+check('scan frame is a thin strip',
+  frameMetrics.frameWidth >= frameMetrics.stageWidth * 0.8
+  && frameMetrics.frameHeight <= frameMetrics.stageHeight * 0.3
+  && frameMetrics.frameWidth / frameMetrics.frameHeight >= 3);
+
 try {
   await page.waitForFunction(() => {
     const value = document.getElementById('scan-value').textContent;

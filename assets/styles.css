@@ -106,7 +106,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 
 .camera-stage{position:relative;flex:none;height:clamp(248px,41dvh,336px);min-height:0;margin:0 0 -24px;overflow:hidden;background:rgba(23,23,23,.08)}
 .camera-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.scan-frame{position:absolute;left:50%;top:51%;width:min(68%,224px);aspect-ratio:2/1;height:auto;transform:translate(-50%,-50%);border:1.5px solid rgba(255,255,255,.92);border-radius:14px;box-shadow:0 0 0 9999px rgba(23,23,23,.18);transition:border-color .15s ease}
+.scan-frame{position:absolute;left:8%;top:37%;width:84%;height:26%;border:1.5px solid rgba(255,255,255,.92);border-radius:14px;box-shadow:0 0 0 9999px rgba(23,23,23,.18);transition:border-color .15s ease}
 .scan-frame .scan-line{position:absolute;left:6%;right:6%;top:20%;height:1.5px;background:#7BD8B8;border-radius:2px;animation:scan-sweep 2.8s ease-in-out infinite}
 .scan-frame.is-hit{border-color:#7BD8B8}
 .scan-frame.is-dup{border-color:#F3CB87}
