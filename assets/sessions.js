@@ -74,7 +74,9 @@ export function normalizeItem(raw, mode = 'collect') {
     notes: String(raw.notes ?? ''),
     firstAt: first,
     lastAt: validIso(raw.lastAt, first),
-    scanCount: Math.max(1, qtyOf(raw.scanCount)),
+    // Scan Bebas is one row per SN. Repeated scans are rejected, so a
+    // normalized collect item always has exactly one scan event.
+    scanCount: 1,
   };
 }
 
@@ -278,12 +280,8 @@ export function addScan(session, raw, meta = {}) {
 
   const index = items.findIndex((item) => normalizeSn(item.sn) === key);
   if (index >= 0) {
-    items[index] = {
-      ...items[index],
-      scanCount: qtyOf(items[index].scanCount) + 1,
-      lastAt: at,
-    };
-    return { status: 'dup', index, item: items[index], session: next };
+    // A serial number is one physical row; do not bump scanCount or lastAt.
+    return { status: 'dup', index, item: items[index], session: base };
   }
   const explicit = meta.brand && normalizeBrand(meta.brand) !== 'Lainnya' ? meta.brand : null;
   const brand = explicit || (base.activeBrand && base.activeBrand !== 'auto' ? base.activeBrand : guessBrand(sn));

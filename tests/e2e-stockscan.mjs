@@ -90,9 +90,12 @@ try {
 
 const firstValue = await page.locator('#scan-value').innerText();
 if (firstValue && firstValue !== '-' && firstValue !== '—') {
+  const scansBefore = await page.evaluate(() => window.__stockscan.session().items[0]?.scanCount);
   await page.waitForTimeout(1700);
   await page.evaluate((value) => window.__stockscan.scan(value), firstValue);
   check('duplicate scan shows warning badge', (await page.locator('#scan-status').innerText()).includes('Duplikat'));
+  const scansAfter = await page.evaluate(() => window.__stockscan.session().items[0]?.scanCount);
+  check('duplicate scan does not increment scan count', scansAfter === scansBefore);
 }
 
 // Manual entry through the editor.
@@ -111,7 +114,7 @@ await page.fill('#search-input', 'router');
 check('search finds item by product name', await page.locator('.item-row').count() === 1);
 await page.fill('#search-input', '');
 await page.click('.chip[data-filter="duplicates"]');
-check('duplicate filter shows only repeated scans', await page.locator('.item-row').count() === 1);
+check('duplicate filter is empty after rejecting repeats', await page.locator('.item-row').count() === 0);
 await page.click('.chip[data-filter="all"]');
 
 // Edit item.

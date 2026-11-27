@@ -41,12 +41,22 @@ test('v3 snapshot migrates to two sessions without losing records', () => {
   assert.equal(state.sessions[1].items[0].status, 'found');
 });
 
+test('normalizeSession clamps legacy repeat counts to one scan', () => {
+  const session = normalizeSession({
+    mode: 'collect',
+    items: [{ sn: 'LEGACY1', scanCount: 6, firstAt: '2026-11-01T10:00:00.000Z', lastAt: '2026-11-02T10:00:00.000Z' }],
+  });
+  assert.equal(session.items[0].scanCount, 1);
+  assert.equal(sessionSummary(session).totalScans, 1);
+  assert.equal(sessionSummary(session).duplicates, 0);
+});
+
 test('a fresh v4 snapshot with no sessions stays empty', () => {
   const state = normalizeState({ version: 4, sessions: [], activeIds: { collect: null, match: null } });
   assert.equal(state.sessions.length, 0);
 });
 
-test('collect scans detect brand, reject duplicates and count repeats', () => {
+test('collect scans detect brand and reject duplicates without incrementing', () => {
   let session = normalizeSession({ mode: 'collect', name: 'Test', items: [] });
   const first = addScan(session, ' ztegc001 ', { at: '2026-11-26T10:00:00.000Z' });
   assert.equal(first.status, 'new');
@@ -54,10 +64,13 @@ test('collect scans detect brand, reject duplicates and count repeats', () => {
   session = first.session;
   const duplicate = addScan(session, 'ZTEGC001', { at: '2026-11-26T10:01:00.000Z' });
   assert.equal(duplicate.status, 'dup');
-  assert.equal(duplicate.item.scanCount, 2);
-  assert.equal(duplicate.item.qty, 1);
+  assert.equal(duplicate.item.scanCount, 1);
+  assert.equal(duplicate.item.firstAt, '2026-11-26T10:00:00.000Z');
+  assert.equal(duplicate.item.lastAt, '2026-11-26T10:00:00.000Z');
+  assert.equal(duplicate.session, session);
   assert.equal(duplicate.session.items.length, 1);
-  assert.equal(sessionSummary(duplicate.session).duplicates, 1);
+  assert.equal(sessionSummary(duplicate.session).duplicates, 0);
+  assert.equal(sessionSummary(duplicate.session).totalScans, 1);
 });
 
 test('explicit brand override wins over prefix detection', () => {
@@ -87,19 +100,16 @@ test('match mode tracks found, remaining and unmatched scans', () => {
 
 test('filterItems supports query, category, duplicates, day and sort', () => {
   const todayIso = new Date().toISOString();
-  const session = normalizeSession({
-    mode: 'collect',
-    items: [
-      { sn: 'ZTE1', name: 'Modem', category: 'Perangkat', scanCount: 2, firstAt: todayIso, lastAt: todayIso },
-      { sn: 'HW2', name: 'Router', category: 'Aksesoris', scanCount: 1, firstAt: '2020-01-01T08:00:00.000Z', lastAt: '2020-01-01T08:00:00.000Z' },
-    ],
-  });
-  assert.equal(filterItems(session.items, { query: 'modem' }).length, 1);
-  assert.equal(filterItems(session.items, { category: 'Aksesoris' })[0].sn, 'HW2');
-  assert.equal(filterItems(session.items, { duplicates: true }).length, 1);
-  assert.equal(filterItems(session.items, { today: true }).length, 1);
-  assert.equal(filterItems(session.items, { today: true })[0].sn, 'ZTE1');
-  assert.equal(filterItems(session.items, { sort: 'oldest' })[0].sn, 'HW2');
+  const items = [
+    { sn: 'ZTE1', name: 'Modem', category: 'Perangkat', scanCount: 2, firstAt: todayIso, lastAt: todayIso },
+    { sn: 'HW2', name: 'Router', category: 'Aksesoris', scanCount: 1, firstAt: '2020-01-01T08:00:00.000Z', lastAt: '2020-01-01T08:00:00.000Z' },
+  ];
+  assert.equal(filterItems(items, { query: 'modem' }).length, 1);
+  assert.equal(filterItems(items, { category: 'Aksesoris' })[0].sn, 'HW2');
+  assert.equal(filterItems(items, { duplicates: true }).length, 1);
+  assert.equal(filterItems(items, { today: true }).length, 1);
+  assert.equal(filterItems(items, { today: true })[0].sn, 'ZTE1');
+  assert.equal(filterItems(items, { sort: 'oldest' })[0].sn, 'HW2');
 });
 
 test('edit and delete update a session without touching the original', () => {

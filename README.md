@@ -8,6 +8,7 @@ Aplikasi pemindai barcode, QR, dan nomor seri **mobile-first** untuk operasional
 
 - **Beranda** dengan ilustrasi scanning, tiga aksi cepat (`Mulai Scan`, `Input Manual`, `Scan dari Gambar`), statistik hari ini, dan riwayat terbaru.
 - **Dua mode**: `Scan Bebas` (kumpulkan barcode apa pun) dan `Cocokkan Daftar` (impor daftar SN lalu tandai yang ketemu / sisa / tidak cocok).
+- **Scan Bebas unik**: satu SN = satu baris. Scan ulang hanya memberi peringatan "Duplikat"; tidak menambah baris, qty, atau `scanCount`.
 - **Kamera asli** (kamera belakang by default): permission handling, senter, ganti kamera, pause/resume, scan dari gambar, cooldown duplikat, beep + getar, dan penanganan error yang jelas. Decode berjalan di **Web Worker** dengan crop adaptif.
 - **Format**: `CODE_128`, `CODE_93`, `CODE_39`, `ITF`, `CODABAR`, `EAN_13`, `EAN_8`, `UPC_A`, `UPC_E`, `QR_CODE`, `DATA_MATRIX`, `AZTEC`.
 - **Detail item**: nama produk, merk, kategori, jumlah, lokasi/rak, catatan, format, timestamp - bisa dibuat manual bila barcode belum dikenal.
