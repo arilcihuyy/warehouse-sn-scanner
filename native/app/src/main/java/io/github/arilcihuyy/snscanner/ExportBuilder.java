@@ -4,130 +4,129 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
+/** Export grids that match the web app: one Rekap sheet for collect, full inventory for match. */
 public final class ExportBuilder {
+    public static final List<String> EXPORT_HEADERS = Arrays.asList(
+            "No", "Barcode/SN", "Nama Produk", "Merk", "Kategori", "Jumlah",
+            "Lokasi", "Waktu", "Catatan", "Jumlah Scan", "Status", "Format");
+
+    public static final class ExportData {
+        public SessionOps.Summary summary;
+        public final List<XlsxWriter.Sheet> sheets = new ArrayList<>();
+        public List<String> headers = new ArrayList<>();
+        public List<List<Object>> rows = new ArrayList<>();
+    }
+
     private ExportBuilder() {
     }
 
-    public static byte[] collectWorkbook(CollectSession session) throws IOException {
-        List<XlsxWriter.Sheet> sheets = new ArrayList<>();
-        List<String> summaryHeaders = Arrays.asList("Merk", "SN unik");
+    public static ExportData build(ScanSession session) {
+        ExportData data = new ExportData();
+        data.summary = SessionOps.summary(session);
+        if (!session.isMatch()) {
+            SessionOps.Recap recap = SessionOps.collectRecap(session.items);
+            int[] widths = new int[recap.headers.size()];
+            widths[0] = 6;
+            for (int i = 1; i < widths.length; i++) widths[i] = 26;
+            data.sheets.add(new XlsxWriter.Sheet("Rekap", recap.headers, recap.rows, widths));
+            data.headers = recap.headers;
+            data.rows = recap.rows;
+            return data;
+        }
+
         List<List<Object>> summaryRows = new ArrayList<>();
-        int total = 0;
-        for (String brand : SnUtil.brandOrder()) {
-            int count = session.countForBrand(brand);
-            if (count == 0) continue;
-            total += count;
-            summaryRows.add(Arrays.asList(brand, count));
-        }
-        summaryRows.add(Arrays.asList("TOTAL", total));
-        sheets.add(new XlsxWriter.Sheet("Ringkasan", summaryHeaders, summaryRows, new int[]{22, 12}));
+        summaryRows.add(Arrays.asList("Nama sesi", session.name));
+        summaryRows.add(Arrays.asList("Mode", "Cocokkan Daftar"));
+        summaryRows.add(Arrays.asList("Tanggal ekspor", SnUtil.formatTime(SnUtil.nowIso())));
+        summaryRows.add(Arrays.asList("Sesi dimulai", SnUtil.formatTime(session.createdAt)));
+        summaryRows.add(Arrays.asList("Total scan", data.summary.totalScans));
+        summaryRows.add(Arrays.asList("Barcode unik", data.summary.unique));
+        summaryRows.add(Arrays.asList("Duplikat", data.summary.duplicates));
+        summaryRows.add(Arrays.asList("Total qty", data.summary.qty));
+        summaryRows.add(Arrays.asList("Ketemu", data.summary.matched));
+        summaryRows.add(Arrays.asList("Sisa", data.summary.remaining));
+        summaryRows.add(Arrays.asList("Tidak cocok", data.summary.unmatched));
+        summaryRows.add(Arrays.asList("Catatan sesi", session.notes == null ? "" : session.notes));
+        data.sheets.add(new XlsxWriter.Sheet("Ringkasan",
+                Arrays.asList("Keterangan", "Nilai"), summaryRows, new int[]{22, 42}));
 
-        List<String> allHeaders = Arrays.asList("No", "Merk", "SN", "Scan pertama", "Scan terakhir");
-        List<List<Object>> allRows = new ArrayList<>();
-        int no = 1;
-        for (CollectItem item : session.items) {
-            allRows.add(Arrays.asList(no++, item.brand, item.sn,
-                    SnUtil.formatTime(item.firstAt), SnUtil.formatTime(item.lastAt)));
-        }
-        sheets.add(new XlsxWriter.Sheet("Semua", allHeaders, allRows, new int[]{6, 16, 30, 20, 20}));
+        List<List<Object>> inventory = SessionOps.exportRows(session);
+        data.sheets.add(new XlsxWriter.Sheet("Inventory", EXPORT_HEADERS, inventory,
+                new int[]{6, 22, 24, 14, 14, 9, 14, 20, 26, 11, 10, 12}));
 
-        List<String> brandHeaders = Arrays.asList("No", "SN", "Scan pertama", "Scan terakhir");
-        for (String brand : SnUtil.brandOrder()) {
+        if (!session.unmatched.isEmpty()) {
             List<List<Object>> rows = new ArrayList<>();
-            int n = 1;
-            for (CollectItem item : session.items) {
-                if (!brand.equals(item.brand)) continue;
-                rows.add(Arrays.asList(n++, item.sn, SnUtil.formatTime(item.firstAt), SnUtil.formatTime(item.lastAt)));
+            int no = 1;
+            for (UnmatchedItem item : session.unmatched) {
+                rows.add(Arrays.asList(no++, item.sn, item.format == null ? "" : item.format,
+                        SnUtil.formatTime(item.at), item.count));
             }
-            if (!rows.isEmpty()) {
-                sheets.add(new XlsxWriter.Sheet(brand, brandHeaders, rows, new int[]{6, 30, 20, 20}));
-            }
+            data.sheets.add(new XlsxWriter.Sheet("Tidak Cocok",
+                    Arrays.asList("No", "Barcode/SN", "Format", "Waktu", "Jumlah Scan"),
+                    rows, new int[]{6, 22, 14, 20, 12}));
         }
-        return XlsxWriter.build(sheets);
+
+        data.headers = EXPORT_HEADERS;
+        data.rows = inventory;
+        return data;
     }
 
-    public static byte[] matchWorkbook(MatchSession session) throws IOException {
-        List<List<Object>> rows = new ArrayList<>();
-        int no = 1;
-        for (MatchItem item : session.items) {
-            rows.add(Arrays.asList(no++, item.sn, item.isFound() ? "Ketemu" : "Sisa",
-                    item.isFound() ? SnUtil.formatTime(item.scannedAt) : ""));
-        }
-        List<XlsxWriter.Sheet> sheets = new ArrayList<>();
-        sheets.add(new XlsxWriter.Sheet("Cocokkan SN",
-                Arrays.asList("No", "SN", "Status", "Waktu scan"), rows, new int[]{6, 30, 12, 20}));
-        return XlsxWriter.build(sheets);
+    public static byte[] workbook(ExportData data) throws IOException {
+        return XlsxWriter.build(data.sheets);
     }
 
-    public static byte[] collectCsv(CollectSession session) {
+    public static byte[] csv(ExportData data) {
+        return toCsv(data.headers, data.rows).getBytes(StandardCharsets.UTF_8);
+    }
+
+    public static String tsv(ExportData data) {
+        return toTsv(data.headers, data.rows);
+    }
+
+    public static String defaultBase(ScanSession session) {
+        return "stockscan-" + SnUtil.safeFilename(session.name) + "-" + SnUtil.stampForFilename();
+    }
+
+    /** Web parity: quote only when the value needs it. */
+    public static String toCsv(List<String> headers, List<List<Object>> rows) {
         StringBuilder b = new StringBuilder("\uFEFF");
-        b.append("No;Merk;SN;Scan pertama;Scan terakhir\r\n");
-        int no = 1;
-        for (CollectItem item : session.items) {
-            b.append(no++).append(';')
-                    .append(csv(item.brand)).append(';')
-                    .append(csv(item.sn)).append(';')
-                    .append(csv(SnUtil.formatTime(item.firstAt))).append(';')
-                    .append(csv(SnUtil.formatTime(item.lastAt))).append("\r\n");
-        }
-        return b.toString().getBytes(StandardCharsets.UTF_8);
-    }
-
-    public static byte[] matchCsv(MatchSession session) {
-        StringBuilder b = new StringBuilder("\uFEFF");
-        b.append("No;SN;Status;Waktu scan\r\n");
-        int no = 1;
-        for (MatchItem item : session.items) {
-            b.append(no++).append(';')
-                    .append(csv(item.sn)).append(';')
-                    .append(item.isFound() ? "Ketemu" : "Sisa").append(';')
-                    .append(csv(item.isFound() ? SnUtil.formatTime(item.scannedAt) : "")).append("\r\n");
-        }
-        return b.toString().getBytes(StandardCharsets.UTF_8);
-    }
-
-    public static String collectTsv(CollectSession session) {
-        StringBuilder b = new StringBuilder("No\tMerk\tSN\tScan pertama\tScan terakhir\n");
-        int no = 1;
-        for (CollectItem item : session.items) {
-            b.append(no++).append('\t')
-                    .append(item.brand).append('\t')
-                    .append(item.sn).append('\t')
-                    .append(SnUtil.formatTime(item.firstAt)).append('\t')
-                    .append(SnUtil.formatTime(item.lastAt)).append('\n');
-        }
+        appendCsvRow(b, headers);
+        for (List<Object> row : rows) appendCsvRow(b, row);
         return b.toString();
     }
 
-    public static String matchTsv(MatchSession session) {
-        StringBuilder b = new StringBuilder("No\tSN\tStatus\tWaktu scan\n");
-        int no = 1;
-        for (MatchItem item : session.items) {
-            b.append(no++).append('\t')
-                    .append(item.sn).append('\t')
-                    .append(item.isFound() ? "Ketemu" : "Sisa").append('\t')
-                    .append(item.isFound() ? SnUtil.formatTime(item.scannedAt) : "").append('\n');
+    private static void appendCsvRow(StringBuilder b, List<?> values) {
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) b.append(';');
+            b.append(quote(values.get(i)));
         }
+        b.append('\n');
+    }
+
+    private static String quote(Object value) {
+        String raw = value == null ? "" : String.valueOf(value);
+        if (raw.isEmpty()) return "";
+        boolean needs = raw.contains(";") || raw.contains("\"")
+                || raw.contains("\n") || raw.contains("\r")
+                || !raw.equals(raw.trim());
+        return needs ? "\"" + raw.replace("\"", "\"\"") + "\"" : raw;
+    }
+
+    public static String toTsv(List<String> headers, List<List<Object>> rows) {
+        StringBuilder b = new StringBuilder();
+        appendTsvRow(b, headers);
+        for (List<Object> row : rows) appendTsvRow(b, row);
         return b.toString();
     }
 
-    public static String collectFilename(String ext) {
-        return "scan-bebas-" + SnUtil.stampForFilename() + "." + ext;
-    }
-
-    public static String matchFilename(String ext) {
-        return "cocokkan-sn-" + SnUtil.stampForFilename() + "." + ext;
-    }
-
-    private static String csv(String value) {
-        if (value == null) return "";
-        String s = value.replace("\"", "\"\"");
-        if (s.contains(";") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
-            return "\"" + s + "\"";
+    private static void appendTsvRow(StringBuilder b, List<?> values) {
+        for (int i = 0; i < values.size(); i++) {
+            if (i > 0) b.append('\t');
+            String value = values.get(i) == null ? "" : String.valueOf(values.get(i));
+            b.append(value.replaceAll("[\\t\\r\\n]+", " "));
         }
-        return s;
+        b.append('\n');
     }
 }

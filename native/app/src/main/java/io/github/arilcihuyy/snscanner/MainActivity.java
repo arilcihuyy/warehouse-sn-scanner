@@ -11,8 +11,6 @@ import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.animation.ObjectAnimator;
-
 public class MainActivity extends AppCompatActivity {
     private static final long TYPE_DELAY = 46L;
     private static final long TYPE_PUNCTUATION_DELAY = 145L;
@@ -22,12 +20,11 @@ public class MainActivity extends AppCompatActivity {
 
     private Store store;
     private TextView greeting;
-    private View matchCard;
-    private View collectCard;
+    private View scanCard;
+    private View inventoryCard;
+    private View manualCard;
     private String[] greetings;
     private final Handler greetingHandler = new Handler(Looper.getMainLooper());
-    private ObjectAnimator matchFloat;
-    private ObjectAnimator collectFloat;
     private int greetingIndex;
     private int greetingChars;
     private boolean greetingDeleting;
@@ -68,8 +65,9 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         store = Store.get(this);
 
-        matchCard = findViewById(R.id.matchCard);
-        collectCard = findViewById(R.id.collectCard);
+        scanCard = findViewById(R.id.scanCard);
+        inventoryCard = findViewById(R.id.inventoryCard);
+        manualCard = findViewById(R.id.manualCard);
         greeting = findViewById(R.id.homeGreeting);
         greetings = new String[]{
                 getString(R.string.home_greeting_1),
@@ -77,13 +75,31 @@ public class MainActivity extends AppCompatActivity {
                 getString(R.string.home_greeting_3)
         };
 
-        matchCard.setOnClickListener(v -> openActivity(MatchActivity.class));
-        collectCard.setOnClickListener(v -> openActivity(CollectActivity.class));
+        findViewById(R.id.helpButton).setOnClickListener(v ->
+                openActivity(new Intent(this, HelpActivity.class)));
+        findViewById(R.id.profileButton).setOnClickListener(v ->
+                openActivity(new Intent(this, SettingsActivity.class)));
         findViewById(R.id.homeSearchButton).setOnClickListener(v -> {
-            Intent intent = new Intent(this, CollectActivity.class);
-            intent.putExtra(CollectActivity.EXTRA_FOCUS_SEARCH, true);
-            startActivity(intent);
-            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+            Intent intent = new Intent(this, InventoryActivity.class);
+            intent.putExtra(InventoryActivity.EXTRA_FOCUS_SEARCH, true);
+            openActivity(intent);
+        });
+        findViewById(R.id.sessionsLink).setOnClickListener(v ->
+                openActivity(new Intent(this, SessionsActivity.class)));
+        findViewById(R.id.sessionCard).setOnClickListener(v ->
+                openActivity(new Intent(this, SessionsActivity.class)));
+
+        scanCard.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ScannerActivity.class);
+            intent.putExtra(ScannerActivity.EXTRA_MODE, store.lastMode());
+            openActivity(intent);
+        });
+        inventoryCard.setOnClickListener(v ->
+                openActivity(new Intent(this, InventoryActivity.class)));
+        manualCard.setOnClickListener(v -> {
+            Intent intent = new Intent(this, InventoryActivity.class);
+            intent.putExtra(InventoryActivity.EXTRA_ADD, true);
+            openActivity(intent);
         });
 
         TextView footer = findViewById(R.id.versionFooter);
@@ -93,23 +109,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        MatchSession match = store.getMatch();
-        TextView matchStats = findViewById(R.id.matchStats);
-        if (match == null || match.items.isEmpty()) {
-            matchStats.setText(R.string.no_session);
-        } else {
-            matchStats.setText(getString(R.string.match_count, match.remainingCount(), match.items.size())
-                    + " · " + match.foundCount() + " " + getString(R.string.found).toLowerCase());
-        }
-
-        CollectSession collect = store.getCollect();
-        TextView collectStats = findViewById(R.id.collectStats);
-        if (collect == null || collect.items.isEmpty()) {
-            collectStats.setText(R.string.no_session);
-        } else {
-            collectStats.setText(getString(R.string.collect_count, collect.items.size(), collect.brandCount()));
-        }
-
+        renderSessionCard();
         startGreeting();
         animateCards();
     }
@@ -118,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         stopGreeting();
-        stopFloat();
+        resetCardPositions();
     }
 
     @Override
@@ -127,8 +127,26 @@ public class MainActivity extends AppCompatActivity {
         stopGreeting();
     }
 
-    private void openActivity(Class<?> activity) {
-        startActivity(new Intent(this, activity));
+    private void renderSessionCard() {
+        String mode = store.lastMode();
+        ScanSession session = store.active(mode);
+        TextView modeLabel = findViewById(R.id.sessionMode);
+        TextView name = findViewById(R.id.sessionName);
+        TextView stats = findViewById(R.id.sessionStats);
+        modeLabel.setText(session != null && session.isMatch()
+                ? R.string.mode_match_title : R.string.mode_collect_title);
+        if (session == null) {
+            name.setText(R.string.no_session);
+            stats.setText(R.string.session_stats_empty);
+            return;
+        }
+        SessionOps.Summary summary = SessionOps.summary(session);
+        name.setText(session.name);
+        stats.setText(getString(R.string.session_stats, summary.unique, summary.totalScans, summary.duplicates));
+    }
+
+    private void openActivity(Intent intent) {
+        startActivity(intent);
         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
     }
 
@@ -150,53 +168,48 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void animateCards() {
-        stopFloat();
+        resetCardPositions();
         boolean enabled = animationsEnabled();
         if (!enabled) {
-            matchCard.setAlpha(1f);
-            matchCard.setTranslationY(0f);
-            collectCard.setAlpha(1f);
-            collectCard.setTranslationY(0f);
+            scanCard.setAlpha(1f);
+            scanCard.setTranslationY(0f);
+            inventoryCard.setAlpha(1f);
+            inventoryCard.setTranslationY(0f);
+            manualCard.setAlpha(1f);
+            manualCard.setTranslationY(0f);
             return;
         }
 
-        matchCard.setAlpha(0f);
-        matchCard.setTranslationY(dp(18));
-        collectCard.setAlpha(0f);
-        collectCard.setTranslationY(dp(18));
-        matchCard.animate().alpha(1f).translationY(0f)
-                .setStartDelay(120L).setDuration(430L)
+        scanCard.setAlpha(0f);
+        scanCard.setTranslationY(dp(20));
+        inventoryCard.setAlpha(0f);
+        inventoryCard.setTranslationY(dp(20));
+        manualCard.setAlpha(0f);
+        manualCard.setTranslationY(dp(20));
+        scanCard.animate().alpha(1f).translationY(0f)
+                .setStartDelay(90L).setDuration(430L)
                 .setInterpolator(new DecelerateInterpolator()).start();
-        collectCard.animate().alpha(1f).translationY(0f)
-                .setStartDelay(210L).setDuration(430L)
+        inventoryCard.animate().alpha(1f).translationY(0f)
+                .setStartDelay(170L).setDuration(430L)
                 .setInterpolator(new DecelerateInterpolator()).start();
-
-        matchFloat = ObjectAnimator.ofFloat(matchCard, "translationY", 0f, -dp(3), 0f);
-        matchFloat.setDuration(5200L);
-        matchFloat.setStartDelay(900L);
-        matchFloat.setRepeatCount(ObjectAnimator.INFINITE);
-        matchFloat.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-        matchFloat.start();
-
-        collectFloat = ObjectAnimator.ofFloat(collectCard, "translationY", 0f, -dp(3), 0f);
-        collectFloat.setDuration(5200L);
-        collectFloat.setStartDelay(2000L);
-        collectFloat.setRepeatCount(ObjectAnimator.INFINITE);
-        collectFloat.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-        collectFloat.start();
+        manualCard.animate().alpha(1f).translationY(0f)
+                .setStartDelay(250L).setDuration(430L)
+                .setInterpolator(new DecelerateInterpolator()).start();
     }
 
-    private void stopFloat() {
-        if (matchFloat != null) {
-            matchFloat.cancel();
-            matchFloat = null;
+    private void resetCardPositions() {
+        if (scanCard != null) {
+            scanCard.animate().cancel();
+            scanCard.setTranslationY(0f);
         }
-        if (collectFloat != null) {
-            collectFloat.cancel();
-            collectFloat = null;
+        if (inventoryCard != null) {
+            inventoryCard.animate().cancel();
+            inventoryCard.setTranslationY(0f);
         }
-        if (matchCard != null) matchCard.setTranslationY(0f);
-        if (collectCard != null) collectCard.setTranslationY(0f);
+        if (manualCard != null) {
+            manualCard.animate().cancel();
+            manualCard.setTranslationY(0f);
+        }
     }
 
     private boolean animationsEnabled() {
@@ -211,9 +224,9 @@ public class MainActivity extends AppCompatActivity {
     private String versionName() {
         try {
             String name = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
-            return name == null ? "3.0.0" : name;
+            return name == null ? "4.0.0" : name;
         } catch (Exception ignored) {
-            return "3.0.0";
+            return "4.0.0";
         }
     }
 }
