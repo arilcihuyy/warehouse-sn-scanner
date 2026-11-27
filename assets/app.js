@@ -37,6 +37,17 @@ let frameTimer = 0;
 let toastTimer = 0;
 let homeTimer = 0;
 let viewTimer = 0;
+let greetingTimer = 0;
+let greetingIndex = 0;
+let greetingCursor = 0;
+let greetingCaret = null;
+let greetingChars = [];
+let greetingDeleting = false;
+const GREETING_PHRASES = [
+  'Halo,\nMau scan apa\nhari ini?',
+  'Halo,\nCek stok dari\nrak mana?',
+  'Halo,\nBarang masuk\natau keluar?',
+];
 const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
 
 function loadSettings() {
@@ -57,6 +68,7 @@ function saveSettings() {
 }
 
 function animateHome() {
+  startGreetingTypewriter();
   if (reduceMotion) return;
   const home = $('home-view');
   if (!home) return;
@@ -68,6 +80,94 @@ function animateHome() {
     home.classList.remove('is-entering');
     home.classList.add('is-settled');
   }, 1100);
+}
+
+function stopGreetingTypewriter() {
+  clearTimeout(greetingTimer);
+  greetingTimer = 0;
+  greetingChars = [];
+  greetingCaret = null;
+}
+
+function scheduleGreeting(delay) {
+  greetingTimer = setTimeout(greetingStep, delay);
+}
+
+function setGreetingCaret(span) {
+  if (greetingCaret === span) return;
+  greetingCaret?.classList.remove('is-caret');
+  greetingCaret = span || null;
+  greetingCaret?.classList.add('is-caret');
+}
+
+function renderGreetingPhrase(phrase, revealAll = false) {
+  const typed = $('greeting-typed');
+  if (!typed) return;
+  typed.replaceChildren();
+  greetingChars = [];
+  greetingCaret = null;
+  for (const line of phrase.split('\n')) {
+    const lineBox = document.createElement('span');
+    lineBox.className = 'greeting-line-box';
+    lineBox.setAttribute('aria-hidden', 'true');
+    for (const char of line) {
+      const span = document.createElement('span');
+      span.className = 'greeting-char';
+      span.textContent = char === ' ' ? '\u00A0' : char;
+      if (revealAll) span.classList.add('is-on');
+      lineBox.appendChild(span);
+      greetingChars.push(span);
+    }
+    typed.appendChild(lineBox);
+  }
+  if (!revealAll) return;
+  setGreetingCaret(greetingChars[greetingChars.length - 1]);
+}
+
+function greetingStep() {
+  if (!greetingChars.length) return;
+  if (!greetingDeleting) {
+    if (greetingCursor >= greetingChars.length) {
+      greetingDeleting = true;
+      scheduleGreeting(2500);
+      return;
+    }
+    const span = greetingChars[greetingCursor];
+    span.classList.add('is-on');
+    setGreetingCaret(span);
+    greetingCursor += 1;
+    if (greetingCursor >= greetingChars.length) {
+      greetingDeleting = true;
+      scheduleGreeting(2500);
+      return;
+    }
+    scheduleGreeting(/[,.!?]/.test(span.textContent) ? 145 : 46);
+    return;
+  }
+  if (greetingCursor <= 0) {
+    greetingDeleting = false;
+    greetingIndex = (greetingIndex + 1) % GREETING_PHRASES.length;
+    renderGreetingPhrase(GREETING_PHRASES[greetingIndex]);
+    greetingCursor = 0;
+    scheduleGreeting(320);
+    return;
+  }
+  greetingCursor -= 1;
+  greetingChars[greetingCursor].classList.remove('is-on');
+  setGreetingCaret(greetingChars[greetingCursor - 1] || null);
+  scheduleGreeting(24);
+}
+
+function startGreetingTypewriter() {
+  stopGreetingTypewriter();
+  const typed = $('greeting-typed');
+  if (!typed) return;
+  greetingIndex = 0;
+  greetingCursor = 0;
+  greetingDeleting = false;
+  renderGreetingPhrase(GREETING_PHRASES[0], reduceMotion);
+  if (reduceMotion) return;
+  scheduleGreeting(280);
 }
 
 function launchFrom(card, action) {
@@ -85,6 +185,7 @@ function launchFrom(card, action) {
 
 function showView(name) {
   if (currentView === 'scan' && name !== 'scan') scanner.stop();
+  if (currentView === 'home' && name !== 'home') stopGreetingTypewriter();
   previousView = currentView;
   currentView = name;
   for (const view of document.querySelectorAll('.view')) {

@@ -45,7 +45,7 @@ await page.evaluate(() => {
 await page.reload();
 await page.waitForSelector('#home-view:not([hidden])');
 
-check('home shows the greeting', (await page.locator('.greeting h1').innerText()).includes('Mau scan barang'));
+check('home shows the greeting', (await page.locator('.greeting h1').getAttribute('aria-label')).toLowerCase().includes('mau scan'));
 check('home shows three primary actions', await page.locator('#start-scan-btn, #nav-inventory, #manual-btn').count() === 3);
 
 // XLSX import through the real file input.

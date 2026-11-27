@@ -59,13 +59,14 @@ h1,h2,h3,p{margin:0}
 .home-scroll{display:flex;flex-direction:column;padding:0 20px calc(18px + var(--safe-bottom))}
 .greeting{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px 0 8px}
 .greeting h1{font-size:clamp(30px,9vw,40px);line-height:1.06;letter-spacing:-.05em;font-weight:750}
-.greeting-line{display:block}
-.greeting-accent{position:relative;display:inline-block}
-.greeting-accent::after{content:"";position:absolute;left:1px;right:1px;bottom:-4px;height:5px;border-radius:999px;background:rgba(23,23,23,.16);transform:scaleX(1);transform-origin:left center}
-.home-view.is-entering .greeting-line{animation:greetingIn .55s cubic-bezier(.2,.8,.2,1) both}
-.home-view.is-entering .greeting-line:nth-of-type(2){animation-delay:.09s}
-.home-view.is-entering .greeting-line:nth-of-type(3){animation-delay:.18s}
-.home-view.is-entering .greeting-accent::after{animation:accentIn .55s cubic-bezier(.2,.8,.2,1) .72s both}
+.greeting-title{min-height:calc(3 * 1.06em);display:flex;align-items:center;justify-content:center;text-align:center}
+.greeting-type-wrap{display:inline-flex;flex-direction:column;align-items:center;white-space:pre}
+.greeting-line-box{display:block;white-space:pre;text-align:center}
+.greeting-char{visibility:hidden;white-space:pre}
+.greeting-char.is-on{visibility:visible}
+.greeting-char.is-caret{position:relative}
+.greeting-char.is-caret::after{content:"";position:absolute;left:100%;top:.08em;width:2px;height:.9em;border-radius:2px;background:var(--ink);animation:caretBlink 1s steps(1) infinite}
+.home-view.is-entering .greeting-title{animation:greetingIn .45s cubic-bezier(.2,.8,.2,1) both}
 .home-view.is-entering .float-top > *{animation:topIn .42s cubic-bezier(.2,.8,.2,1) both}
 .home-view.is-entering .float-top > *:last-child{animation-delay:.08s}
 .home-view.is-entering .fan-card{animation:cardIn .56s cubic-bezier(.2,.8,.2,1) both}
@@ -77,12 +78,12 @@ h1,h2,h3,p{margin:0}
 .home-view.is-settled .fan-card:nth-child(2){animation-delay:1.1s}
 .home-view.is-settled .fan-card:nth-child(3){animation-delay:2.2s}
 .home-view.is-settled .fan-card.is-launching{animation:cardLaunch .26s cubic-bezier(.2,.8,.2,1) both}
-@keyframes greetingIn{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}
+@keyframes greetingIn{from{opacity:0;translate:0 10px}to{opacity:1;translate:0 0}}
 @keyframes topIn{from{opacity:0;translate:0 -8px}to{opacity:1;translate:0 0}}
 @keyframes cardIn{from{opacity:0;translate:0 18px;scale:.96}to{opacity:1;translate:0 0;scale:1}}
 @keyframes cardFloat{0%,100%{translate:0 0}50%{translate:0 -3px}}
 @keyframes cardLaunch{0%{scale:1;opacity:1}45%{scale:1.035;opacity:.9}100%{scale:1.02;opacity:0}}
-@keyframes accentIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes caretBlink{0%,45%{opacity:1}46%,100%{opacity:0}}
 @keyframes viewIn{from{opacity:0;translate:0 14px}to{opacity:1;translate:0 0}}
 .home-dock{padding-bottom:8px}
 .fan{display:grid;grid-template-columns:repeat(3,1fr);align-items:end;gap:8px}

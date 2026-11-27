@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/InstrumentSans-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20261127m">
+  <link rel="stylesheet" href="assets/styles.css?v=20261127n">
   <title>StockScan - Inventory Scanner</title>
 </head>
 <body>
@@ -49,10 +49,8 @@
 
       <div class="scroll-area home-scroll">
         <div class="greeting">
-          <h1>
-            <span class="greeting-line">Halo,</span>
-            <span class="greeting-line">Mau scan barang</span>
-            <span class="greeting-line"><span class="greeting-accent">apa hari ini?</span></span>
+          <h1 id="greeting-title" class="greeting-title" aria-label="Halo, mau scan apa hari ini?">
+            <span class="greeting-type-wrap" aria-hidden="true"><span id="greeting-typed"></span></span>
           </h1>
         </div>
 
@@ -342,6 +340,6 @@
   <input id="image-input" type="file" accept="image/*" hidden>
 
   <script src="assets/zxing.min.js"></script>
-  <script type="module" src="assets/app.js?v=20261127m"></script>
+  <script type="module" src="assets/app.js?v=20261127n"></script>
 </body>
 </html>
