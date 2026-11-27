@@ -39,6 +39,16 @@ function pushUnique(state, raw) {
 }
 
 /**
+ * Parse a list of already-separated values (CSV cells, XLSX cells, text lines).
+ * Unlike parseSnText, this keeps spaces inside a serial number intact.
+ */
+export function parseSnValues(values = []) {
+  const state = { seen: new Set(), items: [], duplicates: 0 };
+  for (const value of values) pushUnique(state, value);
+  return { items: state.items, duplicates: state.duplicates };
+}
+
+/**
  * Paste-friendly parser: newline, comma, semicolon, tab or whitespace separated.
  * Returns unique, uppercase SN strings plus a duplicate count.
  */
@@ -127,9 +137,9 @@ export function parseSnFile(text, filename = '') {
   const firstLine = String(text ?? '').split(/\r?\n/, 1)[0] ?? '';
   const looksLikeCsv =
     /[,;\t]/.test(firstLine) &&
-    /(^|[,;\t])\s*"?(sn|serial|serial\s*number|serialnumber)\b/i.test(firstLine);
+    /(^|[,;\t])\s*"?(s\/n|sn|serial|serial\s*number|serialnumber)\b/i.test(firstLine);
   if (/\.csv$/i.test(filename) || looksLikeCsv) return parseCsv(text);
-  return parseSnText(text);
+  return parseSnValues(String(text ?? '').split(/\r?\n/).flatMap((line) => line.split(/[;,\t]/)));
 }
 
 /**

@@ -4,7 +4,7 @@
  * Existing v1/v2/v3 snapshots are migrated without losing records.
  */
 
-import { normalizeSn } from './scan-core.js';
+import { normalizeSn } from './scan-core.js?v=20261127j';
 import { normalizeState as normalizeLegacy, formatStamp, guessBrand, normalizeBrand, BRANDS } from './data.js';
 
 export { formatStamp, guessBrand, normalizeBrand, BRANDS };
@@ -49,6 +49,8 @@ export function normalizeItem(raw, mode = 'collect') {
   const sn = cleanText(raw.sn ?? raw.barcode ?? raw.value);
   if (!normalizeSn(sn)) return null;
   const first = validIso(raw.firstAt ?? raw.createdAt, nowIso());
+  const rawBrand = cleanText(raw.brand);
+  const brand = rawBrand && rawBrand.toLowerCase() !== 'auto' ? normalizeBrand(rawBrand) : guessBrand(sn);
   if (mode === 'match') {
     return {
       sn,
@@ -56,7 +58,7 @@ export function normalizeItem(raw, mode = 'collect') {
       scannedAt: raw.status === 'found' ? validIso(raw.scannedAt, first) : null,
       format: cleanText(raw.format),
       name: cleanText(raw.name),
-      brand: raw.brand ? normalizeBrand(raw.brand) : guessBrand(sn),
+      brand,
       category: CATEGORIES.includes(raw.category) ? raw.category : 'Perangkat',
       qty: qtyOf(raw.qty),
       location: cleanText(raw.location),
@@ -67,7 +69,7 @@ export function normalizeItem(raw, mode = 'collect') {
     sn,
     format: cleanText(raw.format),
     name: cleanText(raw.name),
-    brand: raw.brand ? normalizeBrand(raw.brand) : guessBrand(sn),
+    brand,
     category: CATEGORIES.includes(raw.category) ? raw.category : 'Perangkat',
     qty: qtyOf(raw.qty),
     location: cleanText(raw.location),
@@ -89,7 +91,16 @@ export function normalizeSession(raw) {
     const item = normalizeItem(entry, mode);
     if (!item) continue;
     const key = normalizeSn(item.sn);
-    if (seen.has(key) && mode === 'collect') continue;
+    if (seen.has(key)) {
+      if (mode === 'match') {
+        const existing = items.find((candidate) => normalizeSn(candidate.sn) === key);
+        if (existing && item.status === 'found' && existing.status !== 'found') {
+          existing.status = 'found';
+          existing.scannedAt = item.scannedAt;
+        }
+      }
+      continue;
+    }
     seen.add(key);
     items.push(item);
   }
@@ -125,6 +136,7 @@ export function normalizeSession(raw) {
       !raw.activeBrand || cleanText(raw.activeBrand).toLowerCase() === 'auto'
         ? 'auto'
         : normalizeBrand(raw.activeBrand),
+    duplicateScans: Math.max(0, Math.floor(Number(raw.duplicateScans ?? raw.duplicates) || 0)),
     items,
     unmatched,
   };
@@ -200,8 +212,9 @@ export function freshState() {
 
 export function sessionSummary(session) {
   const items = session?.items || [];
-  let totalScans = 0;
-  let duplicates = 0;
+  const duplicateScans = Math.max(0, Math.floor(Number(session?.duplicateScans) || 0));
+  let totalScans = duplicateScans;
+  let duplicates = duplicateScans;
   let qty = 0;
   for (const item of items) {
     const scans = modeIsMatch(session) ? (item.status === 'found' ? 1 : 0) : qtyOf(item.scanCount);
@@ -270,6 +283,7 @@ export function addScan(session, raw, meta = {}) {
     createdAt: at,
     updatedAt: at,
     activeBrand: 'auto',
+    duplicateScans: 0,
     items: [],
     unmatched: [],
   };
@@ -308,9 +322,21 @@ export function addScan(session, raw, meta = {}) {
   const index = items.findIndex((item) => normalizeSn(item.sn) === key);
   if (index >= 0) {
     // A serial number is one physical row; do not bump scanCount or lastAt.
-    return { status: 'dup', index, item: items[index], session: base };
+    return {
+      status: 'dup',
+      index,
+      item: items[index],
+      session: {
+        ...base,
+        duplicateScans: Math.max(0, Math.floor(Number(base.duplicateScans) || 0)) + 1,
+        updatedAt: at,
+      },
+    };
   }
-  const explicit = meta.brand && normalizeBrand(meta.brand) !== 'Lainnya' ? meta.brand : null;
+  const explicitBrand = cleanText(meta.brand);
+  const explicit = explicitBrand && explicitBrand.toLowerCase() !== 'auto'
+    ? normalizeBrand(explicitBrand)
+    : null;
   const brand = explicit || (base.activeBrand && base.activeBrand !== 'auto' ? base.activeBrand : guessBrand(sn));
   const item = normalizeItem({
     sn,
@@ -327,6 +353,31 @@ export function addScan(session, raw, meta = {}) {
   }, 'collect');
   items.unshift(item);
   return { status: 'new', index: 0, item, session: next };
+}
+
+export function addExpectedItem(session, raw, meta = {}) {
+  const sn = cleanText(raw);
+  const key = normalizeSn(sn);
+  if (!key) return null;
+  const base = session?.mode === 'match' ? session : null;
+  if (!base) return null;
+  const items = base.items.slice();
+  const existing = items.find((item) => normalizeSn(item.sn) === key);
+  if (existing) return { status: 'dup', item: existing, session: base };
+  const item = normalizeItem({
+    sn,
+    format: meta.format,
+    name: meta.name,
+    brand: meta.brand,
+    category: meta.category,
+    qty: meta.qty,
+    location: meta.location,
+    notes: meta.notes,
+  }, 'match');
+  if (!item) return null;
+  items.unshift(item);
+  const unmatched = (base.unmatched || []).filter((entry) => normalizeSn(entry.sn) !== key);
+  return { status: 'new', item, session: { ...base, items, unmatched, updatedAt: nowIso() } };
 }
 
 export function setExpected(session, values) {
@@ -346,6 +397,7 @@ export function setExpected(session, values) {
     mode: 'match',
     items,
     unmatched: [],
+    duplicateScans: 0,
     updatedAt: at,
   };
 }
@@ -354,7 +406,15 @@ export function replaceItem(session, index, patch) {
   const items = session.items.slice();
   const current = items[index];
   if (!current) return null;
-  items[index] = normalizeItem({ ...current, ...patch, sn: patch.sn ?? current.sn }, session.mode);
+  const sn = cleanText(patch.sn ?? current.sn);
+  const key = normalizeSn(sn);
+  if (!key) return null;
+  for (let i = 0; i < items.length; i += 1) {
+    if (i !== index && normalizeSn(items[i].sn) === key) return null;
+  }
+  const nextItem = normalizeItem({ ...current, ...patch, sn }, session.mode);
+  if (!nextItem) return null;
+  items[index] = nextItem;
   return { ...session, items, updatedAt: nowIso() };
 }
 
@@ -395,6 +455,7 @@ export function filterItems(items = [], options = {}) {
 }
 
 export function exportRows(session) {
+  const match = modeIsMatch(session);
   return (session?.items || []).map((item, index) => [
     index + 1,
     item.sn,
@@ -405,7 +466,7 @@ export function exportRows(session) {
     item.location,
     formatStamp(item.lastAt || item.scannedAt || item.firstAt),
     item.notes || '',
-    qtyOf(item.scanCount),
+    match ? (item.status === 'found' ? 1 : 0) : qtyOf(item.scanCount),
     item.status === 'found' ? 'Ketemu' : item.status === 'pending' ? 'Sisa' : '',
     item.format || '',
   ]);
@@ -499,8 +560,10 @@ export class SessionStore {
   replace(id, next) {
     const index = this.state.sessions.findIndex((session) => session.id === id);
     if (index < 0) return null;
+    const previous = this.state.sessions[index];
+    const wasActive = !this.state.activeIds[previous.mode] || this.state.activeIds[previous.mode] === previous.id;
     this.state.sessions[index] = normalizeSession(next) || next;
-    this.state.activeIds[this.state.sessions[index].mode] = this.state.sessions[index].id;
+    if (wasActive) this.state.activeIds[this.state.sessions[index].mode] = this.state.sessions[index].id;
     this.save();
     return this.state.sessions[index];
   }
@@ -524,6 +587,7 @@ export class SessionStore {
       ...session,
       items: [],
       unmatched: [],
+      duplicateScans: 0,
       updatedAt: nowIso(),
     });
   }

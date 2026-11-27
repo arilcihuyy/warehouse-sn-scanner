@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {
-  SessionStore, addScan, deleteItem, exportRows, EXPORT_HEADERS, filterItems,
+  SessionStore, addExpectedItem, addScan, deleteItem, exportRows, EXPORT_HEADERS, filterItems,
   normalizeSession, normalizeState, replaceItem, sessionSummary, setExpected,
   collectRecap,
 } from '../assets/sessions.js';
@@ -68,16 +68,61 @@ test('collect scans detect brand and reject duplicates without incrementing', ()
   assert.equal(duplicate.item.scanCount, 1);
   assert.equal(duplicate.item.firstAt, '2026-11-26T10:00:00.000Z');
   assert.equal(duplicate.item.lastAt, '2026-11-26T10:00:00.000Z');
-  assert.equal(duplicate.session, session);
   assert.equal(duplicate.session.items.length, 1);
-  assert.equal(sessionSummary(duplicate.session).duplicates, 0);
-  assert.equal(sessionSummary(duplicate.session).totalScans, 1);
+  assert.equal(duplicate.session.items[0].sn, duplicate.item.sn);
+  assert.equal(duplicate.session.duplicateScans, 1);
+  assert.equal(sessionSummary(duplicate.session).duplicates, 1);
+  assert.equal(sessionSummary(duplicate.session).totalScans, 2);
+});
+
+test('duplicate attempts are counted and reset when the list is replaced', () => {
+  const session = normalizeSession({ mode: 'collect', items: [{ sn: 'AAA' }], duplicateScans: 2 });
+  assert.equal(sessionSummary(session).duplicates, 2);
+  assert.equal(sessionSummary(session).totalScans, 3);
+  const replaced = setExpected(session, ['BBB']);
+  assert.equal(replaced.duplicateScans, 0);
+  assert.equal(sessionSummary(replaced).duplicates, 0);
 });
 
 test('explicit brand override wins over prefix detection', () => {
   let session = normalizeSession({ mode: 'collect', items: [] });
   session = addScan(session, 'ZTEGC002', { brand: 'Huawei' }).session;
   assert.equal(session.items[0].brand, 'Huawei');
+});
+
+test('explicit Lainnya brand is not replaced by the active brand', () => {
+  let session = normalizeSession({ mode: 'collect', items: [], activeBrand: 'ZTE' });
+  session = addScan(session, 'ZTEGC003', { brand: 'Lainnya' }).session;
+  assert.equal(session.items[0].brand, 'Lainnya');
+});
+
+test('editing an item to another existing SN is rejected', () => {
+  const session = normalizeSession({
+    mode: 'collect',
+    items: [{ sn: 'AAA' }, { sn: 'BBB' }],
+  });
+  const next = replaceItem(session, 0, { sn: 'bbb' });
+  assert.equal(next, null);
+  assert.deepEqual(session.items.map((item) => item.sn), ['AAA', 'BBB']);
+});
+
+test('editing brand to auto re-detects from the serial number', () => {
+  const session = normalizeSession({
+    mode: 'collect',
+    items: [{ sn: 'HWTC12345', brand: 'ZTE' }],
+  });
+  const next = replaceItem(session, 0, { brand: 'auto' });
+  assert.equal(next.items[0].brand, 'Huawei');
+});
+
+test('manual add in match mode joins the target list, not unmatched', () => {
+  let session = normalizeSession({ mode: 'match', items: [] });
+  session = addScan(session, 'OUTSIDE1').session;
+  const added = addExpectedItem(session, 'OUTSIDE1', { category: 'Perangkat' });
+  assert.equal(added.status, 'new');
+  assert.equal(added.session.items[0].sn, 'OUTSIDE1');
+  assert.equal(added.session.unmatched.length, 0);
+  assert.equal(addExpectedItem(added.session, 'outside1').status, 'dup');
 });
 
 test('match mode tracks found, remaining and unmatched scans', () => {
@@ -137,6 +182,13 @@ test('edit and delete update a session without touching the original', () => {
   assert.equal(removed.items.length, 0);
 });
 
+test('match export marks pending items with zero scans', () => {
+  const session = normalizeSession({ mode: 'match', items: [{ sn: 'AAA' }, { sn: 'BBB', status: 'found' }] });
+  const rows = exportRows(session);
+  assert.equal(rows[0][9], 0);
+  assert.equal(rows[1][9], 1);
+});
+
 test('export rows match the twelve summary/inventory headers', () => {
   const session = normalizeSession({ mode: 'collect', items: [{ sn: 'AAA', name: 'Modem', location: 'A1', notes: 'ok' }] });
   const rows = exportRows(session);
@@ -144,6 +196,31 @@ test('export rows match the twelve summary/inventory headers', () => {
   assert.equal(rows[0].length, 12);
   assert.equal(rows[0][1], 'AAA');
   assert.equal(rows[0][6], 'A1');
+});
+
+test('normalizing a match session collapses duplicate SNs and keeps a found hit', () => {
+  const session = normalizeSession({
+    mode: 'match',
+    items: [
+      { sn: 'AAA', status: 'pending' },
+      { sn: 'aaa', status: 'found', scannedAt: '2026-11-27T01:00:00.000Z' },
+    ],
+  });
+  assert.equal(session.items.length, 1);
+  assert.equal(session.items[0].status, 'found');
+  assert.equal(session.items[0].scannedAt, '2026-11-27T01:00:00.000Z');
+});
+
+test('editing an inactive session does not make it active', () => {
+  const storage = memoryStorage();
+  const store = new SessionStore(storage);
+  const first = store.create('collect', 'First');
+  const second = store.create('collect', 'Second');
+  store.switchTo(first.id);
+  store.rename(second.id, 'Second Renamed');
+  assert.equal(store.state.activeIds.collect, first.id);
+  store.clear(second.id);
+  assert.equal(store.state.activeIds.collect, first.id);
 });
 
 test('store persists sessions across instances and separates modes', () => {

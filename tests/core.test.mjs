@@ -4,6 +4,7 @@ import {
   normalizeSn,
   parseCsv,
   parseSnFile,
+  parseSnValues,
   parseSnText,
 } from '../assets/scan-core.js';
 
@@ -60,6 +61,14 @@ test('parseCsv handles quoted cells', () => {
 test('parseSnFile picks CSV for .csv and text for .txt', () => {
   assert.deepEqual(parseSnFile('SN,MAC\nZTEGC009,AA', 'list.csv').items, ['ZTEGC009']);
   assert.deepEqual(parseSnFile('ZTEGC010\nZTEGC011', 'list.txt').items, ['ZTEGC010', 'ZTEGC011']);
+});
+
+test('parseSnFile keeps spaces inside imported serial numbers', () => {
+  assert.deepEqual(parseSnFile('SN 001\nSN 002', 'list.txt').items, ['SN 001', 'SN 002']);
+  assert.deepEqual(parseSnValues(['SN 003', 'sn 003', 'SN 004']), {
+    items: ['SN 003', 'SN 004'],
+    duplicates: 1,
+  });
 });
 
 test('computeSourceRoi maps an exact-aspect stage', () => {

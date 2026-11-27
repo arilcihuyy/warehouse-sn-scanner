@@ -11,10 +11,10 @@
 
 - Mode kedua **Scan Bebas**: kumpulkan SN apa pun; scan ulang ditolak (satu SN = satu baris), edit/hapus, input manual.
 - **Merk otomatis + override**: prefix `ZTE`, `HWTC`/`48575443`, `FHTT`, `RCM` dikenali; chip merk dan dropdown edit bisa memaksa merk. Excel dikelompokkan per merk.
-- Ekspor `.xlsx` asli: sheet **Ringkasan**, **Semua** (kolom Merk), dan satu sheet per merk. CSV (`;` + BOM) dan TSV juga menyertakan kolom Merk. Rekap mode Cocokkan tetap bisa unduh Excel.
-- State v3 menyimpan sesi `match` + `collect` terpisah di `warehouse-sn-scanner/v2`; data v1/v2 dimigrasikan otomatis, qty lama dirapikan jadi 1.
-- **Duplikat ditolak**: scan SN yang sudah ada tidak menambah baris/qty; hanya feedback kuning + beep. State v3 membersihkan qty lama >1 dari perilaku lama.
-- File baru: `assets/data.js`, `assets/export.js`, `assets/xlsx.js` (multi-sheet).
+- Ekspor `.xlsx`: mode **Cocokkan** memakai sheet **Ringkasan**, **Inventory**, dan **Tidak Cocok** bila ada; mode **Scan Bebas** memakai satu sheet **Rekap** (kolom per merk + baris `jumlah`). Nama file Excel ditanyakan sebelum unduh. CSV (`;` + BOM) / TSV memakai grid yang sama dengan Rekap untuk Scan Bebas, dan header Inventory untuk Cocokkan.
+- State v4 menyimpan sesi `match` + `collect` terpisah di `stockscan/v1`; data v1–v3 dimigrasikan otomatis, qty lama dirapikan jadi 1.
+- **Duplikat ditolak**: scan SN yang sudah ada tidak menambah baris/qty; hanya feedback kuning + beep. Scan Bebas selalu satu baris per SN.
+- File baru: `assets/sessions.js`, `assets/data.js` (legacy), `assets/export.js`, `assets/xlsx.js`, `assets/xlsx-read.js`.
 - Test baru: `tests/data.test.mjs`, `tests/export.test.mjs`, `tests/e2e-collect.mjs`, `tests/e2e-brands.mjs`.
 - Format barcode ditambah: CODE_93, ITF, CODABAR, EAN_8, UPC_A, UPC_E, AZTEC.
 - Verifikasi: 39 unit test lulus, E2E lama + collect + brands lulus, XLSX multi-sheet dibuka `openpyxl`, perf throttle 8× raf p95 39 ms.
@@ -34,7 +34,7 @@
 
 - Shell terang warm-paper untuk home/modal, mode scan gelap imersif; aksen vermilion.
 - Font vendored: Instrument Sans + JetBrains Mono (`assets/fonts/`, OFL). Ikon PWA diperbarui.
-- Mobile-first: hero ringkas, kartu sesi, bottom sheet scan, safe-area, target sentuh besar, layout khusus layar pendek (375×667 tetap memuat CTA). Kamera tetap **42dvh** dengan strip scan tipis **84% × 26%** seperti desain awal.
+- Mobile-first: hero ringkas, kartu sesi, bottom sheet scan, safe-area, target sentuh besar, layout khusus layar pendek (375×667 tetap memuat CTA). Kamera tetap **41dvh** dengan strip scan tipis **84% × 26%** seperti desain awal.
 - Efek blur di atas live camera dan animasi scan-line dihapus untuk menjaga performa.
 - Desktop: home dua kolom; scan dua kolom (kamera kiri, daftar kanan).
 - Semua ID, fitur, business logic, state, merk, dan ekspor dipertahankan. Satu-satunya tambahan JS: `#sheet-sub` text + theme-color dinamis.

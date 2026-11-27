@@ -96,6 +96,8 @@ if (firstValue && firstValue !== '-' && firstValue !== '—') {
   check('duplicate scan shows warning badge', (await page.locator('#scan-status').innerText()).includes('Duplikat'));
   const scansAfter = await page.evaluate(() => window.__stockscan.session().items[0]?.scanCount);
   check('duplicate scan does not increment scan count', scansAfter === scansBefore);
+  const duplicateScans = await page.evaluate(() => window.__stockscan.session().duplicateScans);
+  check('duplicate scan is counted separately', duplicateScans >= 1);
 }
 
 // Manual entry through the editor.
@@ -143,7 +145,7 @@ check('new session created', await page.locator('.session-card').count() === bef
 
 // Export produces a real file.
 await page.click('#sessions-back');
-await page.click('#nav-inventory');
+if (!(await page.locator('#inventory-view').isVisible())) await page.click('#nav-inventory');
 await page.click('#inventory-export');
 await page.click('#export-xlsx');
 check('Excel filename prompt appears', await page.locator('#prompt-modal').isVisible());
@@ -164,6 +166,7 @@ check('sessions survive reload', (await page.locator('#session-list').innerText(
 
 await page.setViewportSize({ width: 360, height: 640 });
 await page.click('#sessions-back');
+if (await page.locator('#inventory-view').isVisible()) await page.click('#inventory-back');
 await page.screenshot({ path: fileURLToPath(new URL('./screenshots/stockscan-home-360.png', import.meta.url)), fullPage: true });
 
 check('no console or page errors', errors.length === 0);

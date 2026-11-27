@@ -1,4 +1,4 @@
-import { computeSourceRoi, createDecoder } from './scan-core.js';
+import { computeSourceRoi, createDecoder } from './scan-core.js?v=20261127j';
 
 const DECODE_INTERVAL_MS = 120;
 
@@ -186,7 +186,13 @@ export class CameraScanner {
     this.video.srcObject = stream;
     this.video.muted = true;
     this.video.setAttribute('playsinline', '');
-    await this.video.play();
+    try {
+      await this.video.play();
+    } catch (error) {
+      // Do not leave the camera LED/stream alive when autoplay is refused.
+      this.stop();
+      throw error;
+    }
 
     if (generation !== this.generation) {
       this.stop();
@@ -377,17 +383,29 @@ export class CameraScanner {
       const imageData = this.context.getImageData(0, 0, targetWidth, targetHeight);
       this.decoding = true;
       this.frameId += 1;
-      this.worker.postMessage(
-        {
-          buffer: imageData.data.buffer,
-          width: targetWidth,
-          height: targetHeight,
-          id: this.frameId,
-          generation: this.workerGeneration,
-        },
-        [imageData.data.buffer],
-      );
-      return;
+      try {
+        this.worker.postMessage(
+          {
+            buffer: imageData.data.buffer,
+            width: targetWidth,
+            height: targetHeight,
+            id: this.frameId,
+            generation: this.workerGeneration,
+          },
+          [imageData.data.buffer],
+        );
+        return;
+      } catch (error) {
+        console.warn('[scanner] gagal mengirim frame ke worker, pakai main thread', error);
+        this.workerFailed = true;
+        this.decoding = false;
+        try {
+          this.worker.terminate();
+        } catch {
+          /* ignore */
+        }
+        this.worker = null;
+      }
     }
 
     if (!this.decodeSync) this.decodeSync = createDecoder(window.ZXing);

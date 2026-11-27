@@ -1,16 +1,16 @@
 /** StockScan, UI, camera flow, inventory and exports. */
 
 import {
-  SessionStore, CATEGORIES, BRANDS, EXPORT_HEADERS, addScan, setExpected, replaceItem,
+  SessionStore, CATEGORIES, BRANDS, EXPORT_HEADERS, addScan, addExpectedItem, setExpected, replaceItem,
   deleteItem, filterItems, exportRows, sessionSummary,
   formatStamp, nowIso, collectRecap,
-} from './sessions.js?v=20261127e';
-import { parseSnText, parseCsv, parseSnFile, normalizeSn } from './scan-core.js';
-import { CameraScanner, decodeImageFile } from './scanner.js';
+} from './sessions.js?v=20261127j';
+import { parseSnValues, parseCsv, parseSnFile, normalizeSn } from './scan-core.js?v=20261127j';
+import { CameraScanner, decodeImageFile } from './scanner.js?v=20261127j';
 import { FeedbackAudio } from './audio.js';
 import { toCsv, toTsv, stampForFilename } from './export.js';
-import { buildWorkbook } from './xlsx.js';
-import { readXlsxRows } from './xlsx-read.js';
+import { buildWorkbook } from './xlsx.js?v=20261127j';
+import { readXlsxRows } from './xlsx-read.js?v=20261127j';
 
 const $ = (id) => document.getElementById(id);
 const store = new SessionStore();
@@ -22,6 +22,7 @@ let session = store.ensure(mode);
 let currentView = 'home';
 let filter = { query: '', category: '', duplicates: false, today: false, sort: 'newest' };
 let scanQuery = '';
+let scanPageSize = 60;
 let pageSize = 100;
 let selected = { index: -1, sn: '', lastAt: '', status: '' };
 let editing = { index: -1, add: false };
@@ -62,6 +63,10 @@ function showView(name) {
   if (name === 'sessions') renderSessions();
   if (name === 'scan') {
     $('scan-view').classList.add('is-idle');
+    $('camera-loading').hidden = true;
+    $('camera-error').hidden = true;
+    $('paused-overlay').hidden = true;
+    $('camera-idle').hidden = false;
     $('camera-mode').textContent = mode === 'match' ? 'Cocokkan Daftar' : 'Scan Bebas';
     $('camera-date').textContent = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
     renderScanSheet();
@@ -142,6 +147,20 @@ function renderHome() {
   renderMode();
 }
 
+function resetSessionFilters() {
+  scanQuery = '';
+  scanPageSize = 60;
+  pageSize = 100;
+  filter = { ...filter, query: '', category: '', duplicates: false, today: false };
+  $('scan-search').value = '';
+  $('search-input').value = '';
+  $('category-filter').value = '';
+  $('search-clear').hidden = true;
+  document.querySelectorAll('.chip[data-filter]').forEach((chip) => {
+    chip.classList.toggle('is-active', chip.dataset.filter === 'all');
+  });
+}
+
 function renderMode() {
   document.querySelectorAll('.mode-tab[data-mode]').forEach((tab) => {
     const active = tab.dataset.mode === mode;
@@ -202,19 +221,25 @@ function renderSessions() {
           <span><b>${summary.duplicates}</b>duplikat</span>
         </div>
         <div class="session-actions">
-          <button class="btn btn-soft btn-small" data-action="resume" data-id="${item.id}" type="button">Lanjutkan</button>
-          <button class="btn btn-soft btn-small" data-action="rename" data-id="${item.id}" type="button">Rename</button>
-          <button class="btn btn-soft btn-small" data-action="export" data-id="${item.id}" type="button">Ekspor</button>
-          <button class="btn btn-soft btn-small" data-action="clear" data-id="${item.id}" type="button">Kosongkan</button>
-          <button class="btn btn-danger btn-small" data-action="delete" data-id="${item.id}" type="button">Hapus</button>
+          <button class="btn btn-soft btn-small" data-action="resume" data-id="${escapeHtml(item.id)}" type="button">Lanjutkan</button>
+          <button class="btn btn-soft btn-small" data-action="rename" data-id="${escapeHtml(item.id)}" type="button">Rename</button>
+          <button class="btn btn-soft btn-small" data-action="export" data-id="${escapeHtml(item.id)}" type="button">Ekspor</button>
+          <button class="btn btn-soft btn-small" data-action="clear" data-id="${escapeHtml(item.id)}" type="button">Kosongkan</button>
+          <button class="btn btn-danger btn-small" data-action="delete" data-id="${escapeHtml(item.id)}" type="button">Hapus</button>
         </div>
       </article>`;
   }).join('') : '<div class="empty-state"><strong>Belum ada sesi</strong><p>Buat sesi baru untuk memisahkan pekerjaan.</p></div>';
 }
 
 function renderDetail() {
-  const item = session.items[selected.index];
-  if (!item) return;
+  const index = session.items.findIndex((item) => normalizeSn(item.sn) === normalizeSn(selected.sn));
+  const item = session.items[index];
+  if (!item) {
+    toast('Item tidak ditemukan', 'warning');
+    showView(detailOrigin === 'scan' ? 'scan' : 'inventory');
+    return;
+  }
+  selected.index = index;
   $('detail-sn').textContent = item.sn;
   $('detail-format').textContent = item.format || 'Barcode / QR';
   $('detail-name').textContent = item.name || '-';
@@ -222,7 +247,7 @@ function renderDetail() {
   $('detail-category').textContent = item.category;
   $('detail-qty').textContent = `${item.qty} unit`;
   $('detail-location').textContent = item.location || '-';
-  $('detail-scans').textContent = `${item.scanCount || 1}×`;
+  $('detail-scans').textContent = `${session.mode === 'match' ? (item.status === 'found' ? 1 : 0) : (item.scanCount || 1)}×`;
   $('detail-time').textContent = formatStamp(item.lastAt || item.scannedAt || item.firstAt);
   $('detail-notes').textContent = item.notes || '-';
   $('detail-subtitle').textContent = session.name;
@@ -251,7 +276,7 @@ function updateResultCard(result) {
   const detail = [];
   if (item.brand) detail.push(item.brand);
   if (item.qty) detail.push(`${item.qty} unit`);
-  if (result.status === 'dup') detail.push(`total ${item.scanCount}× scan`);
+  if (result.status === 'dup') detail.push('SN sudah ada di sesi ini');
   if (result.status === 'unmatched') detail.push('tidak ada dalam daftar');
   $('scan-meta').textContent = detail.join(' · ') || 'Hasil pemindaian akan muncul di sini.';
   $('open-detail-btn').hidden = result.status !== 'new' && result.status !== 'match';
@@ -285,7 +310,8 @@ function renderScanSheet() {
   const items = filterItems(session.items, { query: scanQuery, sort: 'newest' });
   $('scan-list-empty').hidden = items.length > 0;
   $('scan-list-empty').textContent = scanQuery ? 'SN tidak ditemukan.' : 'Belum ada SN di sesi ini.';
-  $('scan-list').innerHTML = items.slice(0, 60).map((item) => {
+  const visible = items.slice(0, scanPageSize);
+  $('scan-list').innerHTML = visible.map((item) => {
     const index = session.items.indexOf(item);
     const scans = Number(item.scanCount || 1);
     const pill = mode === 'match'
@@ -305,6 +331,8 @@ function renderScanSheet() {
         <button class="scan-row-edit" type="button" data-edit="${index}" aria-label="Edit ${escapeHtml(item.sn)}"><svg><use href="#i-edit"/></svg></button>
       </div>`;
   }).join('');
+  $('scan-list-more').hidden = items.length <= scanPageSize;
+  $('scan-list-more').textContent = `Muat lebih banyak (${Math.max(0, items.length - scanPageSize)} tersisa)`;
 }
 
 function flashFrame(status) {
@@ -366,8 +394,12 @@ async function activateCamera() {
     $('camera-loading').hidden = true;
     $('pause-btn').innerHTML = '<svg><use href="#i-pause"/></svg>';
     if (navigator.mediaDevices?.enumerateDevices) {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      $('switch-btn').hidden = devices.filter((device) => device.kind === 'videoinput').length < 2;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        $('switch-btn').hidden = devices.filter((device) => device.kind === 'videoinput').length < 2;
+      } catch {
+        $('switch-btn').hidden = true;
+      }
     }
   } catch (error) {
     $('camera-loading').hidden = true;
@@ -422,8 +454,8 @@ function startScan(nextMode) {
 
 
 function openEditor(index = -1, add = false) {
-  editing = { index, add };
   const item = add ? null : session.items[index];
+  editing = { index, add, sn: item?.sn || '' };
   $('edit-title').textContent = add ? 'Tambah Item' : 'Edit Item';
   $('edit-sn').value = item?.sn || '';
   $('edit-name').value = item?.name || '';
@@ -440,7 +472,7 @@ function openEditor(index = -1, add = false) {
 function saveEditor(event) {
   event.preventDefault();
   const sn = $('edit-sn').value.trim();
-  if (!sn) return;
+  if (!sn) { toast('SN wajib diisi', 'warning'); return; }
   const patch = {
     sn,
     name: $('edit-name').value.trim(),
@@ -452,7 +484,13 @@ function saveEditor(event) {
     format: $('edit-format').value,
   };
   if (editing.add) {
-    const result = addScan(session, sn, patch);
+    const result = session.mode === 'match'
+      ? addExpectedItem(session, sn, patch)
+      : addScan(session, sn, patch);
+    if (!result || result.status === 'invalid') {
+      toast('SN tidak valid', 'warning');
+      return;
+    }
     if (result.status === 'dup' || result.status === 'already') {
       toast('SN ini sudah tercatat', 'warning');
       closeModal('edit-modal');
@@ -460,12 +498,24 @@ function saveEditor(event) {
     }
     store.replace(session.id, result.session);
     session = store.byId(session.id);
-    toast('Item ditambahkan', 'success');
+    toast(session.mode === 'match' ? 'Item ditambahkan ke daftar target' : 'Item ditambahkan', 'success');
   } else {
-    const next = replaceItem(session, editing.index, patch);
-    if (!next) return;
+    const currentIndex = session.items.findIndex(
+      (item) => normalizeSn(item.sn) === normalizeSn(editing.sn),
+    );
+    if (currentIndex < 0) {
+      toast('Item tidak ditemukan', 'warning');
+      closeModal('edit-modal');
+      return;
+    }
+    const next = replaceItem(session, currentIndex, patch);
+    if (!next) {
+      toast('SN sudah ada di sesi ini', 'warning');
+      return;
+    }
     store.replace(session.id, next);
     session = store.byId(session.id);
+    selected.sn = next.items[currentIndex].sn;
     toast('Perubahan disimpan', 'success');
   }
   closeModal('edit-modal');
@@ -550,20 +600,29 @@ function sanitizeExportName(value, fallback) {
 }
 
 function exportFile(kind, requestedName = null) {
-  const target = store.byId(exportSessionId) || session;
-  const { sheets, rows, headers } = buildExportData(target);
-  const tableHeaders = headers || EXPORT_HEADERS;
-  const stamp = stampForFilename();
-  const defaultBase = `stockscan-${safeFilename(target.name)}-${stamp}`;
-  const base = kind === 'xlsx' ? sanitizeExportName(requestedName, defaultBase) : defaultBase;
-  if (kind === 'xlsx') {
-    downloadBlob(new Blob([buildWorkbook({ sheets })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${base}.xlsx`);
-    toast('Excel diunduh', 'success');
-  } else if (kind === 'csv') {
-    downloadBlob(new Blob(['\uFEFF', toCsv(tableHeaders, rows)], { type: 'text/csv;charset=utf-8' }), `${base}.csv`);
-    toast('CSV diunduh', 'success');
-  } else if (kind === 'tsv') {
-    copyText(toTsv(tableHeaders, rows));
+  try {
+    const target = store.byId(exportSessionId) || session;
+    if (!target) {
+      toast('Sesi tidak ditemukan', 'warning');
+      return;
+    }
+    const { sheets, rows, headers } = buildExportData(target);
+    const tableHeaders = headers || EXPORT_HEADERS;
+    const stamp = stampForFilename();
+    const defaultBase = `stockscan-${safeFilename(target.name)}-${stamp}`;
+    const base = kind === 'xlsx' ? sanitizeExportName(requestedName, defaultBase) : defaultBase;
+    if (kind === 'xlsx') {
+      downloadBlob(new Blob([buildWorkbook({ sheets })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${base}.xlsx`);
+      toast('Excel diunduh', 'success');
+    } else if (kind === 'csv') {
+      downloadBlob(new Blob(['\uFEFF', toCsv(tableHeaders, rows)], { type: 'text/csv;charset=utf-8' }), `${base}.csv`);
+      toast('CSV diunduh', 'success');
+    } else if (kind === 'tsv') {
+      copyText(toTsv(tableHeaders, rows));
+    }
+  } catch (error) {
+    console.error('[stockscan] export gagal', error);
+    toast('Ekspor gagal. Coba lagi.', 'warning');
   }
 }
 
@@ -624,7 +683,9 @@ async function importList(file) {
     if (/\.xlsx$/i.test(file.name)) {
       const rows = await readXlsxRows(file);
       const header = (rows[0] || []).map((cell) => String(cell).trim().toLowerCase());
-      const column = header.findIndex((cell) => /^(sn|serial|serial number|no sn|barcode|kode)$/.test(cell));
+      const column = header.findIndex((cell) =>
+        /^(sn|s\/n|serial|serial\s*(number|no\.?)|serialnumber|no\.?\s*sn|nomor\s*sn|kode\s*sn|kode\s*barang|barcode|sn\s*perangkat)$/.test(cell),
+      );
       values = rows.slice(column >= 0 ? 1 : 0)
         .map((row) => String(row[column >= 0 ? column : 0] ?? '').trim())
         .filter(Boolean);
@@ -632,7 +693,7 @@ async function importList(file) {
       const text = await file.text();
       values = (/\.csv$/i.test(file.name) ? parseCsv(text) : parseSnFile(text, file.name)).items;
     }
-    const parsed = parseSnText(values.join('\n'));
+    const parsed = parseSnValues(values);
     $('sn-input').value = parsed.items.join('\n');
     updatePreview();
     toast(`${parsed.items.length} SN diimpor`, 'success');
@@ -642,8 +703,12 @@ async function importList(file) {
   }
 }
 
+function parseSnEntries(text) {
+  return parseSnValues(String(text ?? '').split(/\r?\n/).flatMap((line) => line.split(/[;,\t]/)));
+}
+
 function updatePreview() {
-  const parsed = parseSnText($('sn-input').value);
+  const parsed = parseSnEntries($('sn-input').value);
   $('preview-count').textContent = `${parsed.items.length} SN terdeteksi${parsed.duplicates ? ` · ${parsed.duplicates} duplikat` : ''}`;
 }
 
@@ -675,14 +740,17 @@ function wireEvents() {
     mode = tab.dataset.mode;
     store.setMode(mode);
     session = store.ensure(mode);
+    resetSessionFilters();
+    $('camera-mode').textContent = mode === 'match' ? 'Cocokkan Daftar' : 'Scan Bebas';
     renderMode();
     renderHome();
+    renderScanSheet();
   }));
 
   $('start-scan-btn').addEventListener('click', () => startScan(mode));
   $('collect-start').addEventListener('click', activateCamera);
   $('start-btn').addEventListener('click', () => {
-    const parsed = parseSnText($('sn-input').value);
+    const parsed = parseSnEntries($('sn-input').value);
     if (!parsed.items.length) { toast('Masukkan atau impor daftar SN terlebih dahulu', 'warning'); return; }
     session = store.replace(session.id, setExpected(session, parsed.items));
     store.setMode('match');
@@ -706,10 +774,13 @@ function wireEvents() {
     try {
       const text = await decodeImageFile(file);
       if (!text) { toast('Barcode tidak ditemukan di gambar', 'warning'); return; }
-      handleScan(text, { format: 'Gambar' });
+      const result = handleScan(text, { format: 'Gambar' });
       showView('scan');
       $('camera-idle').hidden = false;
-      toast('Barcode dari gambar tersimpan', 'success');
+      if (result?.status === 'dup' || result?.status === 'already') toast('SN ini sudah ada di sesi', 'warning');
+      else if (result?.status === 'unmatched') toast('Barcode di luar daftar cocokkan', 'warning');
+      else if (result?.status === 'new' || result?.status === 'match') toast('Barcode dari gambar tersimpan', 'success');
+      else toast('Barcode dari gambar tidak dapat disimpan', 'warning');
     } catch {
       toast('Gambar tidak dapat diproses', 'warning');
     }
@@ -717,7 +788,10 @@ function wireEvents() {
 
   $('edit-form').addEventListener('submit', saveEditor);
   $('edit-delete').addEventListener('click', () => askConfirm('Hapus item ini dari sesi?', () => {
-    const next = deleteItem(session, editing.index);
+    const index = session.items.findIndex(
+      (item) => normalizeSn(item.sn) === normalizeSn(editing.sn),
+    );
+    const next = index >= 0 ? deleteItem(session, index) : null;
     if (next) {
       store.replace(session.id, next);
       session = store.byId(session.id);
@@ -727,7 +801,7 @@ function wireEvents() {
     renderHome();
     renderInventory();
     renderScanSheet();
-    if (currentView === 'detail') showView('inventory');
+    if (currentView === 'detail') showView(detailOrigin === 'scan' ? 'scan' : 'inventory');
   }, 'Hapus item'));
   $('edit-cancel')?.addEventListener('click', () => closeModal('edit-modal'));
   $('qty-minus')?.addEventListener('click', () => { $('edit-qty').value = Math.max(1, Number($('edit-qty').value) - 1); });
@@ -766,7 +840,10 @@ function wireEvents() {
   $('nav-inventory').addEventListener('click', () => showView('inventory'));
   $('nav-sessions').addEventListener('click', () => showView('sessions'));
   $('inventory-back').addEventListener('click', () => showView(previousView === 'scan' ? 'scan' : 'home'));
-  $('sessions-back').addEventListener('click', () => showView('home'));
+  $('sessions-back').addEventListener('click', () => {
+    const target = previousView === 'scan' || previousView === 'inventory' ? previousView : 'home';
+    showView(target);
+  });
   $('detail-back').addEventListener('click', () => showView(detailOrigin));
   $('home-search-btn').addEventListener('click', () => showView('inventory'));
   $('profile-btn').addEventListener('click', () => {
@@ -813,6 +890,11 @@ function wireEvents() {
   });
   $('scan-search').addEventListener('input', (event) => {
     scanQuery = event.target.value;
+    scanPageSize = 60;
+    renderScanSheet();
+  });
+  $('scan-list-more').addEventListener('click', () => {
+    scanPageSize += 60;
     renderScanSheet();
   });
   $('scan-list').addEventListener('click', (event) => {
@@ -831,6 +913,7 @@ function wireEvents() {
       const created = store.create(activeMode, name || 'Sesi Baru');
       session = created;
       mode = created.mode;
+      resetSessionFilters();
       renderSessions();
       renderHome();
       toast('Sesi dibuat', 'success');
@@ -847,15 +930,18 @@ function wireEvents() {
       session = store.byId(id);
       mode = session.mode;
       store.setMode(mode);
+      resetSessionFilters();
       renderMode();
       renderHome();
       renderSessions();
       toast(`Sesi "${target.name}" aktif`, 'success');
     } else if (action === 'rename') {
       askPrompt('Ubah nama sesi', target.name, (name) => {
-        if (name) store.rename(id, name);
+        const updated = name ? store.rename(id, name) : null;
+        if (updated && session?.id === id) session = updated;
         renderSessions();
         renderHome();
+        renderScanSheet();
       });
     } else if (action === 'export') {
       openExport(id);
@@ -870,8 +956,10 @@ function wireEvents() {
       }, 'Kosongkan');
     } else if (action === 'delete') {
       askConfirm(`Hapus sesi "${target.name}" beserta seluruh datanya?`, () => {
+        const wasActive = store.state.activeIds[mode] === id;
         store.remove(id);
         session = store.active(mode) || store.ensure(mode);
+        if (wasActive) resetSessionFilters();
         renderSessions();
         renderHome();
         renderInventory();

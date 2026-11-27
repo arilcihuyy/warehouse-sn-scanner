@@ -5,7 +5,7 @@
   "description": "Test harness for Warehouse SN Scanner",
   "scripts": {
     "test": "node core.test.mjs && node data.test.mjs && node stockscan.test.mjs && node export.test.mjs && node decode-node.js && node roi-node.js",
-    "test:e2e": "node e2e-import.mjs && node e2e-camera.mjs && node e2e-flow.mjs && node e2e-pause.mjs",
+    "test:e2e": "node e2e-stockscan.mjs",
     "test:collect": "node e2e-collect.mjs",
     "test:brands": "node e2e-brands.mjs",
     "test:stockscan": "node e2e-stockscan.mjs",

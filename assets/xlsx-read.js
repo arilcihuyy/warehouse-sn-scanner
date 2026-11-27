@@ -70,6 +70,14 @@ function cellText(cell, shared) {
   return value;
 }
 
+function columnIndex(reference) {
+  const letters = /^([A-Z]+)\d+$/.exec(reference || '')?.[1];
+  if (!letters) return -1;
+  let index = 0;
+  for (const letter of letters) index = index * 26 + (letter.charCodeAt(0) - 64);
+  return index - 1;
+}
+
 /** Returns rows of strings from the first worksheet. */
 export async function readXlsxRows(file) {
   const entries = await unzip(new Uint8Array(await file.arrayBuffer()));
@@ -91,7 +99,15 @@ export async function readXlsxRows(file) {
   const rows = [];
   for (const row of doc.getElementsByTagName('row')) {
     const cells = [];
-    for (const cell of row.getElementsByTagName('c')) cells.push(cellText(cell, shared));
+    for (const cell of row.getElementsByTagName('c')) {
+      const index = columnIndex(cell.getAttribute('r'));
+      if (index >= 0) {
+        while (cells.length < index) cells.push('');
+        cells[index] = cellText(cell, shared);
+      } else {
+        cells.push(cellText(cell, shared));
+      }
+    }
     rows.push(cells);
   }
   return rows;
