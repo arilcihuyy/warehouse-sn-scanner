@@ -19,6 +19,13 @@
 - Format barcode ditambah: CODE_93, ITF, CODABAR, EAN_8, UPC_A, UPC_E, AZTEC.
 - Verifikasi: 39 unit test lulus, E2E lama + collect + brands lulus, XLSX multi-sheet dibuka `openpyxl`, perf throttle 8× raf p95 39 ms.
 
+## Update 27 Nov 2026 — APK Android native v2.1.0
+
+- Native scanner frame sekarang **strip persegi panjang** (~84% lebar layar; tinggi dibatasi 70–104 dp), bukan framing kotak default ZXing.
+- Version `2.1.0` (versionCode 3), package/signing key sama dengan v2.0.0; update di atas v2.0.0 mempertahankan data.
+- Release v2.0.0/v1.0.0 tetap tersimpan; v2.1.0 menjadi update terpisah.
+- Build/verifikasi: `./gradlew test lintRelease assembleRelease`; APK Signature Scheme v2 valid; ukuran 4,483,397 byte; SHA-256 `5df2035f21bead5af615645ba1b6c93732742a27a2d9b96b2945062f31e2e6e8`.
+
 ## Update 26 Nov 2026 — APK Android native v2.0.0
 
 - APK **native Android** (Java + ZXing), bukan WebView/TWA. Tidak butuh Chrome/internet; `INTERNET` tidak diminta.

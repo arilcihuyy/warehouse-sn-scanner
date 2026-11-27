@@ -1,8 +1,12 @@
 package io.github.arilcihuyy.snscanner;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import androidx.test.core.app.ApplicationProvider;
+
+import com.journeyapps.barcodescanner.DecoratedBarcodeView;
+import com.journeyapps.barcodescanner.Size;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,6 +39,16 @@ public class ActivitySmokeTest {
         ActivityController<CollectActivity> controller = Robolectric.buildActivity(CollectActivity.class).setup();
         assertNotNull(controller.get().findViewById(R.id.collectList));
         assertNotNull(controller.get().findViewById(R.id.chipAuto));
+        controller.pause().stop().destroy();
+    }
+
+    @Test
+    public void scannerFrameIsRectangular() {
+        ActivityController<ScannerActivity> controller = Robolectric.buildActivity(ScannerActivity.class).setup();
+        DecoratedBarcodeView view = controller.get().findViewById(R.id.barcodeView);
+        Size size = view.getBarcodeView().getFramingRectSize();
+        assertNotNull(size);
+        assertTrue("scanner frame must be a wide strip", size.width > size.height * 2.5);
         controller.pause().stop().destroy();
     }
 

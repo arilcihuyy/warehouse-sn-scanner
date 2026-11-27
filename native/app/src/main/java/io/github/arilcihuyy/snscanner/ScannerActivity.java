@@ -32,10 +32,12 @@ import com.journeyapps.barcodescanner.BarcodeCallback;
 import com.journeyapps.barcodescanner.BarcodeResult;
 import com.journeyapps.barcodescanner.DecoratedBarcodeView;
 import com.journeyapps.barcodescanner.DefaultDecoderFactory;
+import com.journeyapps.barcodescanner.Size;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import android.util.DisplayMetrics;
 
 public class ScannerActivity extends AppCompatActivity {
     public static final String EXTRA_MODE = "mode";
@@ -85,6 +87,7 @@ public class ScannerActivity extends AppCompatActivity {
         torch = findViewById(R.id.torchButton);
         TextView title = findViewById(R.id.scannerTitle);
         title.setText(MODE_MATCH.equals(mode) ? R.string.scanner_title_match : R.string.scanner_title_collect);
+        barcodeView.getBarcodeView().setFramingRectSize(scanFrameSize());
 
         findViewById(R.id.closeButton).setOnClickListener(v -> finish());
         torch.setOnClickListener(v -> toggleTorch());
@@ -111,6 +114,18 @@ public class ScannerActivity extends AppCompatActivity {
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_REQUEST);
         }
+    }
+
+    /** A thin strip, not the library's default square. */
+    private Size scanFrameSize() {
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        int width = Math.min(Math.round(metrics.widthPixels * 0.84f),
+                Math.round(360 * metrics.density));
+        int minHeight = Math.round(70 * metrics.density);
+        int maxHeight = Math.round(104 * metrics.density);
+        int height = Math.round(metrics.heightPixels * 0.11f);
+        height = Math.max(minHeight, Math.min(maxHeight, height));
+        return new Size(width, height);
     }
 
     private void startCamera() {

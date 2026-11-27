@@ -29,11 +29,11 @@ export SN_KEYPASS=...
 # app/build/outputs/apk/release/app-release.apk
 ```
 
-The release APK uses `applicationId io.github.arilcihuyy.snscanner`, versionCode 2, versionName 2.0.0, minSdk 24, targetSdk 36. Keep the keystore safe; future updates must be signed with the same key.
+The release APK uses `applicationId io.github.arilcihuyy.snscanner`, versionCode 3, versionName 2.1.0, minSdk 24, targetSdk 36. Keep the keystore safe; future updates must be signed with the same key.
 
 ## Release
 
-Rename the signed APK to `warehouse-sn-scanner-v2.0.0-native.apk` and attach it to the GitHub release. Verify with:
+Rename the signed APK to `warehouse-sn-scanner-v2.1.0-native.apk` and attach it to the GitHub release. Verify with:
 
 ```bash
 apksigner verify --print-certs app-release.apk
