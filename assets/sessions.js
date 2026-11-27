@@ -224,6 +224,33 @@ export function sessionSummary(session) {
   };
 }
 
+/**
+ * Column-per-brand recap used by the Excel export:
+ * No | RCM | ZTE | ... ; one row per unit, SN under its brand.
+ * Last row is "jumlah" with the count for every brand.
+ */
+export function collectRecap(items = []) {
+  const safeItems = (items || []).filter((item) => item && normalizeSn(item.sn));
+  const brands = BRANDS.filter((brand) => safeItems.some((item) => item.brand === brand));
+  const columns = brands.length ? brands : [];
+  const buckets = new Map(columns.map((brand) => [brand, []]));
+  for (const item of safeItems) {
+    const brand = columns.includes(item.brand) ? item.brand : BRANDS[BRANDS.length - 1];
+    if (!buckets.has(brand)) {
+      columns.push(brand);
+      buckets.set(brand, []);
+    }
+    buckets.get(brand).push(item.sn);
+  }
+  const maxRows = columns.reduce((max, brand) => Math.max(max, buckets.get(brand).length), 0);
+  const rows = [];
+  for (let index = 0; index < maxRows; index += 1) {
+    rows.push([index + 1, ...columns.map((brand) => buckets.get(brand)[index] || '')]);
+  }
+  rows.push(['jumlah', ...columns.map((brand) => buckets.get(brand).length)]);
+  return { headers: ['No', ...columns], rows };
+}
+
 function modeIsMatch(session) {
   return session?.mode === 'match';
 }

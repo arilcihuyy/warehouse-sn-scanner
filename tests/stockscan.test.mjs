@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   SessionStore, addScan, deleteItem, exportRows, EXPORT_HEADERS, filterItems,
   normalizeSession, normalizeState, replaceItem, sessionSummary, setExpected,
+  collectRecap,
 } from '../assets/sessions.js';
 
 let passed = 0;
@@ -96,6 +97,20 @@ test('match mode tracks found, remaining and unmatched scans', () => {
   assert.equal(summary.matched, 1);
   assert.equal(summary.remaining, 1);
   assert.equal(summary.unmatched, 1);
+});
+
+test('collectRecap puts SNs under brand columns and counts per brand', () => {
+  const recap = collectRecap([
+    { sn: 'ZTE-1', brand: 'ZTE' },
+    { sn: 'RCM-1', brand: 'RCM' },
+    { sn: 'ZTE-2', brand: 'ZTE' },
+  ]);
+  assert.deepEqual(recap.headers, ['No', 'ZTE', 'RCM']);
+  assert.deepEqual(recap.rows, [
+    [1, 'ZTE-1', 'RCM-1'],
+    [2, 'ZTE-2', ''],
+    ['jumlah', 2, 1],
+  ]);
 });
 
 test('filterItems supports query, category, duplicates, day and sort', () => {

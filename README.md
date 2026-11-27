@@ -14,7 +14,7 @@ Aplikasi pemindai barcode, QR, dan nomor seri **mobile-first** untuk operasional
 - **Detail item**: nama produk, merk, kategori, jumlah, lokasi/rak, catatan, format, timestamp - bisa dibuat manual bila barcode belum dikenal.
 - **Inventaris**: pencarian SN/nama/merk, filter kategori/duplikat/hari ini, pengurutan, edit, hapus dengan konfirmasi, dan render inkremental.
 - **Manajemen sesi**: buat, lanjutkan, rename, ekspor, kosongkan, dan hapus sesi. Data lama (v1–v3) dimigrasikan otomatis.
-- **Ekspor nyata**: `.xlsx` dengan sheet `Ringkasan` + `Inventory`, CSV, TSV, dan share file bila didukung browser. Impor daftar dari `.txt`, `.csv`, dan `.xlsx`.
+- **Ekspor nyata**: `.xlsx` sheet `Rekap` per merk (SN per kolom, baris `jumlah`), CSV/TSV dengan format yang sama, dan share file bila didukung browser. Impor daftar dari `.txt`, `.csv`, dan `.xlsx`.
 - **Palet StockScan**: gradien pastel mint, cream, kuning hangat, dan peach di latar belakang. Teks hitam, kartu putih, tombol melayang, dan layar kamera gelap dengan frame putih.
 - Data tersimpan di `localStorage` (web) / `SharedPreferences` (native). Tidak ada CDN saat pemindaian.
 
@@ -128,7 +128,7 @@ Pilih mode di layar awal: **Cocokkan** atau **Scan bebas**.
 2. Scan barcode apa pun. Setiap SN baru masuk daftar; kalau SN sudah pernah discan, scan ditolak dan tidak menambah baris.
 3. Merk terdeteksi dari prefix SN. Kalau prefix tidak jelas (atau salah), tap chip merk di atas daftar sebelum scan - pilihan berlaku untuk scan berikutnya. Merk per baris juga bisa diubah lewat dialog edit.
 4. Ketuk baris untuk mengubah SN/merk/jumlah unit atau menghapus. Tombol **+** di samping pencarian untuk menambah SN manual.
-5. Tombol **Ekspor** → `.xlsx` berisi Ringkasan + Semua + sheet per merk; atau CSV/TSV.
+5. Tombol **Ekspor** → `.xlsx` berisi sheet `Rekap` per merk (SN di kolom merk, baris `jumlah`); CSV/TSV memakai format yang sama.
 6. **Reset sesi** menghapus daftar scan bebas saja; sesi Cocokkan tetap tersimpan.
 
 ### Format laporan WhatsApp

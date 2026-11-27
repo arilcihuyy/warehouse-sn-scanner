@@ -3,8 +3,8 @@
 import {
   SessionStore, CATEGORIES, BRANDS, EXPORT_HEADERS, addScan, setExpected, replaceItem,
   deleteItem, filterItems, exportRows, sessionSummary,
-  formatStamp, nowIso,
-} from './sessions.js?v=20261127c';
+  formatStamp, nowIso, collectRecap,
+} from './sessions.js?v=20261127e';
 import { parseSnText, parseCsv, parseSnFile, normalizeSn } from './scan-core.js';
 import { CameraScanner, decodeImageFile } from './scanner.js';
 import { FeedbackAudio } from './audio.js';
@@ -478,6 +478,20 @@ function saveEditor(event) {
 
 function buildExportData(target) {
   const summary = sessionSummary(target);
+  if (target.mode !== 'match') {
+    const recap = collectRecap(target.items);
+    return {
+      summary,
+      sheets: [{
+        name: 'Rekap',
+        headers: recap.headers,
+        rows: recap.rows,
+        widths: [6, ...recap.headers.slice(1).map(() => 26)],
+      }],
+      rows: recap.rows,
+      headers: recap.headers,
+    };
+  }
   const sheets = [
     {
       name: 'Ringkasan',
@@ -508,7 +522,7 @@ function buildExportData(target) {
       widths: [6, 22, 14, 20, 12],
     });
   }
-  return { summary, sheets, rows: exportRows(target) };
+  return { summary, sheets, rows: exportRows(target), headers: EXPORT_HEADERS };
 }
 
 function openExport(id = session.id) {
@@ -526,17 +540,18 @@ function openExport(id = session.id) {
 
 function exportFile(kind) {
   const target = store.byId(exportSessionId) || session;
-  const { sheets, rows } = buildExportData(target);
+  const { sheets, rows, headers } = buildExportData(target);
+  const tableHeaders = headers || EXPORT_HEADERS;
   const stamp = stampForFilename();
   const base = `stockscan-${safeFilename(target.name)}-${stamp}`;
   if (kind === 'xlsx') {
     downloadBlob(new Blob([buildWorkbook({ sheets })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${base}.xlsx`);
     toast('Excel diunduh', 'success');
   } else if (kind === 'csv') {
-    downloadBlob(new Blob(['\uFEFF', toCsv(EXPORT_HEADERS, rows)], { type: 'text/csv;charset=utf-8' }), `${base}.csv`);
+    downloadBlob(new Blob(['\uFEFF', toCsv(tableHeaders, rows)], { type: 'text/csv;charset=utf-8' }), `${base}.csv`);
     toast('CSV diunduh', 'success');
   } else if (kind === 'tsv') {
-    copyText(toTsv(EXPORT_HEADERS, rows));
+    copyText(toTsv(tableHeaders, rows));
   }
 }
 
