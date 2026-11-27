@@ -96,9 +96,10 @@ function askConfirm(text, callback, label = 'Ya, lanjutkan') {
   openModal('confirm-modal');
 }
 
-function askPrompt(title, value, callback) {
+function askPrompt(title, value, callback, label = 'Simpan') {
   $('prompt-title').textContent = title;
   $('prompt-input').value = value || '';
+  $('prompt-ok').textContent = label;
   promptCallback = callback;
   openModal('prompt-modal');
 }
@@ -538,12 +539,23 @@ function openExport(id = session.id) {
   openModal('export-modal');
 }
 
-function exportFile(kind) {
+function sanitizeExportName(value, fallback) {
+  const clean = String(value ?? '')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\.xlsx$/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/^[. ]+|[. ]+$/g, '');
+  return clean || fallback;
+}
+
+function exportFile(kind, requestedName = null) {
   const target = store.byId(exportSessionId) || session;
   const { sheets, rows, headers } = buildExportData(target);
   const tableHeaders = headers || EXPORT_HEADERS;
   const stamp = stampForFilename();
-  const base = `stockscan-${safeFilename(target.name)}-${stamp}`;
+  const defaultBase = `stockscan-${safeFilename(target.name)}-${stamp}`;
+  const base = kind === 'xlsx' ? sanitizeExportName(requestedName, defaultBase) : defaultBase;
   if (kind === 'xlsx') {
     downloadBlob(new Blob([buildWorkbook({ sheets })], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${base}.xlsx`);
     toast('Excel diunduh', 'success');
@@ -871,7 +883,13 @@ function wireEvents() {
   $('rekap-btn').addEventListener('click', () => (mode === 'match' ? openRekap() : openExport(session.id)));
   $('copy-report').addEventListener('click', () => copyText(reportText()));
   $('rekap-export').addEventListener('click', () => { closeModal('rekap-modal'); openExport(session.id); });
-  $('export-xlsx').addEventListener('click', () => exportFile('xlsx'));
+  $('export-xlsx').addEventListener('click', () => {
+    const target = store.byId(exportSessionId) || session;
+    const stamp = stampForFilename();
+    const defaultName = `stockscan-${safeFilename(target.name)}-${stamp}`;
+    askPrompt('Nama file Excel', defaultName, (value) => exportFile('xlsx', value), 'Unduh');
+    $('prompt-input').select();
+  });
   $('export-csv').addEventListener('click', () => exportFile('csv'));
   $('export-tsv').addEventListener('click', () => exportFile('tsv'));
   $('export-share').addEventListener('click', shareFile);

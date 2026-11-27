@@ -145,11 +145,15 @@ check('new session created', await page.locator('.session-card').count() === bef
 await page.click('#sessions-back');
 await page.click('#nav-inventory');
 await page.click('#inventory-export');
-const downloadPromise = page.waitForEvent('download');
 await page.click('#export-xlsx');
+check('Excel filename prompt appears', await page.locator('#prompt-modal').isVisible());
+await page.fill('#prompt-input', 'rekap-test');
+const downloadPromise = page.waitForEvent('download');
+await page.click('#prompt-ok');
 const download = await downloadPromise;
 const path = await download.path();
 check('XLSX download generated', fs.existsSync(path) && fs.statSync(path).size > 1000);
+check('XLSX uses custom filename', await download.suggestedFilename() === 'rekap-test.xlsx');
 
 // Reload persistence.
 await page.reload();

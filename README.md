@@ -14,7 +14,7 @@ Aplikasi pemindai barcode, QR, dan nomor seri **mobile-first** untuk operasional
 - **Detail item**: nama produk, merk, kategori, jumlah, lokasi/rak, catatan, format, timestamp - bisa dibuat manual bila barcode belum dikenal.
 - **Inventaris**: pencarian SN/nama/merk, filter kategori/duplikat/hari ini, pengurutan, edit, hapus dengan konfirmasi, dan render inkremental.
 - **Manajemen sesi**: buat, lanjutkan, rename, ekspor, kosongkan, dan hapus sesi. Data lama (v1–v3) dimigrasikan otomatis.
-- **Ekspor nyata**: `.xlsx` sheet `Rekap` per merk (SN per kolom, baris `jumlah`), CSV/TSV dengan format yang sama, dan share file bila didukung browser. Impor daftar dari `.txt`, `.csv`, dan `.xlsx`.
+- **Ekspor nyata**: `.xlsx` sheet `Rekap` per merk (SN per kolom, baris `jumlah`), nama file bisa diisi sendiri sebelum unduh; CSV/TSV dengan format yang sama; share file bila didukung browser. Impor daftar dari `.txt`, `.csv`, dan `.xlsx`.
 - **Palet StockScan**: gradien pastel mint, cream, kuning hangat, dan peach di latar belakang. Teks hitam, kartu putih, tombol melayang, dan layar kamera gelap dengan frame putih.
 - Data tersimpan di `localStorage` (web) / `SharedPreferences` (native). Tidak ada CDN saat pemindaian.
 
