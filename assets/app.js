@@ -35,6 +35,9 @@ let detailOrigin = 'home';
 let cooldown = new Map();
 let frameTimer = 0;
 let toastTimer = 0;
+let homeTimer = 0;
+let viewTimer = 0;
+const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
 
 function loadSettings() {
   try {
@@ -53,12 +56,53 @@ function saveSettings() {
   }
 }
 
+function animateHome() {
+  if (reduceMotion) return;
+  const home = $('home-view');
+  if (!home) return;
+  clearTimeout(homeTimer);
+  home.classList.remove('is-entering', 'is-settled');
+  void home.offsetWidth;
+  home.classList.add('is-entering');
+  homeTimer = setTimeout(() => {
+    home.classList.remove('is-entering');
+    home.classList.add('is-settled');
+  }, 1100);
+}
+
+function launchFrom(card, action) {
+  if (!card || reduceMotion) {
+    action();
+    return;
+  }
+  if (card.classList.contains('is-launching')) return;
+  card.classList.add('is-launching');
+  setTimeout(() => {
+    card.classList.remove('is-launching');
+    action();
+  }, 170);
+}
+
 function showView(name) {
   if (currentView === 'scan' && name !== 'scan') scanner.stop();
   previousView = currentView;
   currentView = name;
-  for (const view of document.querySelectorAll('.view')) view.hidden = view.id !== `${name}-view`;
-  if (name === 'home') renderHome();
+  for (const view of document.querySelectorAll('.view')) {
+    view.hidden = view.id !== `${name}-view`;
+    if (view.hidden) view.classList.remove('view-in');
+  }
+  const nextView = document.getElementById(`${name}-view`);
+  if (nextView && name !== 'home' && !reduceMotion) {
+    clearTimeout(viewTimer);
+    nextView.classList.remove('view-in');
+    void nextView.offsetWidth;
+    nextView.classList.add('view-in');
+    viewTimer = setTimeout(() => nextView.classList.remove('view-in'), 420);
+  }
+  if (name === 'home') {
+    renderHome();
+    animateHome();
+  }
   if (name === 'inventory') renderInventory();
   if (name === 'sessions') renderSessions();
   if (name === 'scan') {
@@ -747,7 +791,7 @@ function wireEvents() {
     renderScanSheet();
   }));
 
-  $('start-scan-btn').addEventListener('click', () => startScan(mode));
+  $('start-scan-btn').addEventListener('click', () => launchFrom($('start-scan-btn'), () => startScan(mode)));
   $('collect-start').addEventListener('click', activateCamera);
   $('start-btn').addEventListener('click', () => {
     const parsed = parseSnEntries($('sn-input').value);
@@ -837,7 +881,7 @@ function wireEvents() {
     if (index >= 0) openDetail(index);
   });
 
-  $('nav-inventory').addEventListener('click', () => showView('inventory'));
+  $('nav-inventory').addEventListener('click', () => launchFrom($('nav-inventory'), () => showView('inventory')));
   $('nav-sessions').addEventListener('click', () => showView('sessions'));
   $('inventory-back').addEventListener('click', () => showView(previousView === 'scan' ? 'scan' : 'home'));
   $('sessions-back').addEventListener('click', () => {
@@ -1024,6 +1068,7 @@ function init() {
   renderSessions();
   renderScanSheet();
   updatePreview();
+  animateHome();
 
   window.__stockscan = {
     scan: (value, meta) => handleScan(value, meta),
