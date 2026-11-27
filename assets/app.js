@@ -4,7 +4,7 @@ import {
   SessionStore, CATEGORIES, BRANDS, EXPORT_HEADERS, addScan, setExpected, replaceItem,
   deleteItem, filterItems, exportRows, sessionSummary,
   formatStamp, nowIso,
-} from './sessions.js';
+} from './sessions.js?v=20261127c';
 import { parseSnText, parseCsv, parseSnFile, normalizeSn } from './scan-core.js';
 import { CameraScanner, decodeImageFile } from './scanner.js';
 import { FeedbackAudio } from './audio.js';
