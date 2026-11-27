@@ -10,8 +10,8 @@ android {
         applicationId 'io.github.arilcihuyy.snscanner'
         minSdk 24
         targetSdk 36
-        versionCode 3
-        versionName '2.1.0'
+        versionCode 4
+        versionName '3.0.0'
         resConfigs 'id', 'en'
     }
 

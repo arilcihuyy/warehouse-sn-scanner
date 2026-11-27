@@ -10,6 +10,7 @@ import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CollectActivity extends AppCompatActivity implements CollectAdapter.Listener {
+    public static final String EXTRA_FOCUS_SEARCH = "focus_search";
     private static final int[] CHIP_IDS = {
             R.id.chipAuto, R.id.chipZte, R.id.chipHuawei, R.id.chipFiberhome, R.id.chipRcm, R.id.chipOther
     };
@@ -113,6 +115,16 @@ public class CollectActivity extends AppCompatActivity implements CollectAdapter
             public void afterTextChanged(Editable s) {
             }
         });
+
+        if (getIntent().getBooleanExtra(EXTRA_FOCUS_SEARCH, false)) {
+            search.postDelayed(() -> {
+                search.requestFocus();
+                InputMethodManager keyboard = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (keyboard != null) {
+                    keyboard.showSoftInput(search, InputMethodManager.SHOW_IMPLICIT);
+                }
+            }, 220L);
+        }
     }
 
     @Override

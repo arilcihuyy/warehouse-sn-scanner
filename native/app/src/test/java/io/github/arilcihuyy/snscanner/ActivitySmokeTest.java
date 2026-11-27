@@ -23,6 +23,8 @@ public class ActivitySmokeTest {
         ActivityController<MainActivity> controller = Robolectric.buildActivity(MainActivity.class).setup();
         assertNotNull(controller.get().findViewById(R.id.matchCard));
         assertNotNull(controller.get().findViewById(R.id.collectCard));
+        assertNotNull(controller.get().findViewById(R.id.homeGreeting));
+        assertNotNull(controller.get().findViewById(R.id.homeSearchButton));
         controller.pause().stop().destroy();
     }
 

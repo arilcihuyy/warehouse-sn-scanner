@@ -59,16 +59,32 @@
                     android:textSize="10sp"
                     android:letterSpacing="0.14" />
             </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/homeSearchButton"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/search_hint"
+                android:padding="12dp"
+                android:src="@drawable/ic_search"
+                app:tint="@color/ink" />
         </LinearLayout>
 
         <TextView
+            android:id="@+id/homeGreeting"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:lineSpacingMultiplier="1.2"
-            android:text="@string/home_subtitle"
-            android:textColor="@color/ink_soft"
-            android:textSize="14sp" />
+            android:layout_marginTop="22dp"
+            android:fontFamily="sans-serif-medium"
+            android:gravity="center_vertical"
+            android:lineSpacingMultiplier="1.05"
+            android:minHeight="126dp"
+            android:text="@string/home_greeting_1"
+            android:textColor="@color/ink"
+            android:textSize="30sp"
+            android:textStyle="bold" />
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/matchCard"
@@ -253,7 +269,6 @@
                 android:id="@+id/versionFooter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/version_footer"
                 android:textColor="@color/ink_faint"
                 android:textSize="10sp" />
         </LinearLayout>

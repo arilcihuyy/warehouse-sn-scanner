@@ -3,6 +3,9 @@
     <string name="app_name">SN Scanner</string>
     <string name="home_title">Warehouse SN Scanner</string>
     <string name="home_subtitle">Scan barcode perangkat, rapikan SN, ekspor ke Excel. Sepenuhnya di perangkat ini.</string>
+    <string name="home_greeting_1">Halo,\nMau scan apa hari ini?</string>
+    <string name="home_greeting_2">Halo,\nCek stok dari rak mana?</string>
+    <string name="home_greeting_3">Halo,\nBarang masuk atau keluar?</string>
     <string name="mode_match_title">Cocokkan</string>
     <string name="mode_match_desc">Impor daftar SN, lalu scan untuk menandai yang sudah ketemu.</string>
     <string name="mode_collect_title">Scan bebas</string>
@@ -81,7 +84,7 @@
     <string name="paste_hint">Satu SN per baris, atau tempel kolom dari Excel.</string>
     <string name="delete_collect_title">Hapus SN?</string>
     <string name="delete_collect_body">%1$s akan dihapus dari daftar.</string>
-    <string name="version_footer">v2.0.0 · native Android</string>
+    <string name="version_footer">v%1$s · native Android</string>
     <string name="back">Kembali</string>
     <string name="match_count">%1$d sisa · %2$d SN</string>
     <string name="collect_count">%1$d SN · %2$d merk</string>
