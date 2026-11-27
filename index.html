@@ -8,7 +8,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/fonts/InstrumentSans-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="assets/styles.css?v=20261127j">
+  <link rel="stylesheet" href="assets/styles.css?v=20261127k">
   <title>StockScan - Inventory Scanner</title>
 </head>
 <body>
@@ -41,7 +41,10 @@
     <section id="home-view" class="view home-view">
       <header class="float-top">
         <button id="help-btn" class="round-btn" type="button" aria-label="Bantuan"><svg><use href="#i-help"/></svg></button>
-        <button id="profile-btn" class="round-btn" type="button" aria-label="Pengaturan"><svg><use href="#i-user"/></svg></button>
+        <div class="home-top-actions">
+          <button id="home-search-btn" class="round-btn" type="button" aria-label="Cari item"><svg><use href="#i-search"/></svg></button>
+          <button id="profile-btn" class="round-btn" type="button" aria-label="Pengaturan"><svg><use href="#i-user"/></svg></button>
+        </div>
       </header>
 
       <div class="scroll-area home-scroll">
@@ -55,7 +58,6 @@
             <button id="nav-inventory" class="fan-card card-inventory" type="button"><svg><use href="#i-box"/></svg><span>Inventaris</span></button>
             <button id="manual-btn" class="fan-card card-manual" type="button"><svg><use href="#i-edit"/></svg><span>Manual</span></button>
           </div>
-          <button id="home-search-btn" class="dock-fab" type="button" aria-label="Cari item"><svg><use href="#i-search"/></svg></button>
         </div>
       </div>
     </section>
@@ -336,6 +338,6 @@
   <input id="image-input" type="file" accept="image/*" hidden>
 
   <script src="assets/zxing.min.js"></script>
-  <script type="module" src="assets/app.js?v=20261127j"></script>
+  <script type="module" src="assets/app.js?v=20261127k"></script>
 </body>
 </html>
